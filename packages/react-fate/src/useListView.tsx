@@ -57,7 +57,7 @@ export function useListView<
     }
 
     return async () => {
-      const { before, first, last, ...values } = metadata.args || {};
+      const { before: _before, first, last, ...values } = metadata.args || {};
       const nextPageSize = first ?? last;
 
       await client.loadConnection(
@@ -83,7 +83,7 @@ export function useListView<
     }
 
     return async () => {
-      const { after, first, last, ...values } = metadata.args || {};
+      const { after: _after, first, last, ...values } = metadata.args || {};
       const previousPageSize = last ?? first;
       await client.loadConnection(
         nodeView,

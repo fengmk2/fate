@@ -69,13 +69,13 @@
   },
   "dependencies": {
     "superjson": "^2.2.6",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@trpc/client": "^11.16.0",
-    "@trpc/server": "^11.16.0",
+    "@trpc/client": "^11.17.0",
+    "@trpc/server": "^11.17.0",
     "drizzle-orm": "^0.45.2",
-    "vite": "catalog:"
+    "vite": "^8.0.10"
   },
   "peerDependencies": {
     "@trpc/client": "^11.6.0",

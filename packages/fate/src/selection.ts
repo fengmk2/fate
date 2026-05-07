@@ -67,7 +67,7 @@ export const getSelectionPlan = <T extends Entity, S extends Selection<T>, V ext
         assignArgs('', clonedArgs, ignoreKeys);
       }
 
-      const { args, live: _live, ...withoutArgs } = selection;
+      const { args: _args, live: _live, ...withoutArgs } = selection;
       walk(withoutArgs, prefix, 'connection');
       return;
     }
@@ -136,7 +136,7 @@ export const getSelectionPlan = <T extends Entity, S extends Selection<T>, V ext
               ? paginationArgKeys
               : undefined;
           assignArgs(path, clonedArgs, ignoreKeys);
-          const { args, ...rest } = selectionObject;
+          const { args: _args, ...rest } = selectionObject;
           selectionWithoutArgs = rest;
         }
 
