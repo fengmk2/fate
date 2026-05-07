@@ -180,25 +180,13 @@ Finally, by using modern Async React, the latest React DevTools features for Sus
 
 ### Get Started
 
-Get started with [a ready-made template](https://github.com/nkzw-tech/fate-template#readme) quickly
+Create a new fate app from the default template with Vite+:
 
-::: code-group
-
-```bash [npm]
-npx giget@latest gh:nkzw-tech/fate-template
+```bash
+vp create @nkzw:fate fate-app
 ```
 
-```bash [pnpm]
-pnpx giget@latest gh:nkzw-tech/fate-template
-```
-
-```bash [yarn]
-yarn dlx giget@latest gh:nkzw-tech/fate-template
-```
-
-:::
-
-`fate-template` comes with a simple tRPC backend and a React frontend using **_fate_**. It features modern tools to deliver an incredibly fast development experience. Follow its [README.md](https://github.com/nkzw-tech/fate-template#fate-quick-start-template) to get started.
+The default template lives in the fate repo at [`templates/fate/default`](https://github.com/nkzw-tech/fate/tree/main/templates/fate/default). It currently includes a tRPC backend, Prisma, and a React frontend using **_fate_**. It features modern tools to deliver an incredibly fast development experience.
 
 Read about the [Core Concepts](/guide/core-concepts), or jump right in and learn about [Views](/guide/views).
 

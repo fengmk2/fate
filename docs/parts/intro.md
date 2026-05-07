@@ -54,4 +54,4 @@ export const PostCard = ({ post: postRef }: { post: ViewRef<'Post'> }) => {
 };
 ```
 
-_[Learn more](/guide/getting-started) about fate's core concepts or get started with [a ready-made template](https://github.com/nkzw-tech/fate-template#readme)._
+_[Learn more](/guide/getting-started) about fate's core concepts or get started with the default template._

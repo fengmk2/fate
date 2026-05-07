@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
     "allowJs": true,
-    "customConditions": ["@nkzw/source"],
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
@@ -18,10 +17,10 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2017",
-    "types": ["vite/client", "vitepress/client"]
+    "types": ["vite/client"]
   },
-  "exclude": ["node_modules", "templates"],
-  "include": ["**/.fate/*.ts", "**/*.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"],
+  "include": ["**/.fate/*.ts", "**/*.ts", "**/*.tsx"],
   "ts-node": {
     "transpileOnly": true,
     "transpiler": "ts-node/transpilers/swc",

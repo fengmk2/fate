@@ -1,0 +1,37 @@
+name: template
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.template }}
+      cancel-in-progress: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        template:
+          - default
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: '24'
+          cache: true
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Test ${{ matrix.template }} template
+        run: scripts/test-fate-template.sh ${{ matrix.template }}

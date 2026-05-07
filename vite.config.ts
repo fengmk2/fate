@@ -32,6 +32,7 @@ export default defineConfig({
       'example/client/src/translations/',
       'example/server-prisma/dist',
       'pnpm-lock.yaml',
+      'templates/',
     ],
     singleQuote: true,
   },
@@ -46,6 +47,7 @@ export default defineConfig({
       'example/server-prisma/src/prisma/prisma-client/*',
       'example/server-drizzle/src/drizzle/migrations/**',
       'packages/**/lib',
+      'templates',
     ],
     jsPlugins: [
       'eslint-plugin-workspaces',
