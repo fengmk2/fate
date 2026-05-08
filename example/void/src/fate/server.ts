@@ -54,7 +54,7 @@ const requireUser = (ctx: AppContext) => {
   return ctx.sessionUser;
 };
 
-export const fateServer = createFateServer<AppContext>({
+export const fateServer = createFateServer({
   context: ({ request }) => createContext({ request }),
   lists: {
     commentSearch: {

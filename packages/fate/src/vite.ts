@@ -35,6 +35,25 @@ const toTsconfigPath = (fromFile: string, toFile: string) => {
   return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
 };
 
+const toGeneratedModuleName = ({
+  fromFile,
+  moduleName,
+  root,
+}: {
+  fromFile: string;
+  moduleName: string;
+  root: string;
+}) => {
+  if (!moduleName.startsWith('.') && !path.isAbsolute(moduleName)) {
+    return moduleName;
+  }
+
+  return toTsconfigPath(
+    fromFile,
+    path.isAbsolute(moduleName) ? moduleName : path.resolve(root, moduleName),
+  );
+};
+
 const writeIfChanged = async (file: string, contents: string) => {
   try {
     if ((await readFile(file, 'utf8')) === contents) {
@@ -77,13 +96,25 @@ export const fate = (options: FateVitePluginOptions): Plugin => {
       ? null
       : path.resolve(config.root, options.tsconfigFile ?? defaultTsconfigFile);
 
-  const writeGeneratedFiles = async (source: string) => {
+  const writeGeneratedFiles = async (moduleExports: ModuleExports) => {
     const generatedFile = getGeneratedFile();
     if (!generatedFile) {
       return;
     }
 
-    await writeIfChanged(generatedFile, source);
+    await writeIfChanged(
+      generatedFile,
+      createClientSource({
+        clientModule: options.clientModule ?? defaultClientRuntime,
+        moduleExports,
+        moduleName: toGeneratedModuleName({
+          fromFile: generatedFile,
+          moduleName: options.module,
+          root: config.root,
+        }),
+        transport: options.transport ?? 'trpc',
+      }),
+    );
     await removeIfExists(path.resolve(config.root, legacyDeclarationFile));
 
     const tsconfigFile = getTsconfigFile();
@@ -129,7 +160,7 @@ export const fate = (options: FateVitePluginOptions): Plugin => {
     });
 
     generatedSource = source;
-    await writeGeneratedFiles(source);
+    await writeGeneratedFiles(moduleExports);
     server?.watcher.add([...dependencies]);
 
     return source;

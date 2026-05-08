@@ -57,7 +57,7 @@ const createServer = (
   options: { postByIds?: SourceByIdsHandler<TestContext, unknown, Post> } = {},
 ) => {
   const live = createLiveEventBus();
-  const registry = createSourceRegistry([
+  const registry = createSourceRegistry<TestContext>([
     [
       postSource,
       {

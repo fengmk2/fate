@@ -6,6 +6,7 @@
 .wrangler/
 **/.wrangler/
 .pnpm-debug.log
+.DS_Store
 .vitepress/cache
 **/node_modules/
 /node_modules/

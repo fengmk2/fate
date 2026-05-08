@@ -186,7 +186,7 @@ export const list = <Item extends AnyRecord>(
     [dataViewBaseKey]: getBaseDataView(view),
     ...(options ? { [dataViewListOptionsKey]: options } : null),
     kind: 'list' as const,
-  } as DataView<Item> & DataViewInternals<Item>;
+  } as DataView<Item> & DataViewInternals<Item> & { kind: 'list' };
 };
 
 /**
