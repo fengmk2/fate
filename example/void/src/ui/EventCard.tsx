@@ -1,5 +1,6 @@
 import Stack, { VStack } from '@nkzw/stack';
 import { ArrowUpRight, CalendarDays, MapPin, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useView, view, ViewRef } from 'react-fate';
 import type { Event, EventAttendee } from '../fate/views.ts';
 import formatLabel from '../lib/formatLabel.tsx';
@@ -45,14 +46,38 @@ const EventAttendeeChip = ({ attendee: attendeeRef }: { attendee: ViewRef<'Event
   );
 };
 
-const intlFormatDateTime = new Intl.DateTimeFormat(undefined, {
+const hydrationSafeDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+});
+
+const localDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
   hour: 'numeric',
   minute: 'numeric',
   month: 'short',
 });
 
-const formatDateTime = (date: string) => intlFormatDateTime.format(new Date(date));
+const formatDateTime = (date: string, local: boolean) =>
+  (local ? localDateTimeFormatter : hydrationSafeDateTimeFormatter).format(new Date(date));
+
+const EventDateTime = ({ endAt, startAt }: { endAt: string; startAt: string }) => {
+  const [local, setLocal] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setLocal(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <>
+      {formatDateTime(startAt, local)} → {formatDateTime(endAt, local)}
+    </>
+  );
+};
 
 export default function EventCard({ event: eventRef }: { event: ViewRef<'Event'> }) {
   const event = useView(EventView, eventRef);
@@ -75,7 +100,7 @@ export default function EventCard({ event: eventRef }: { event: ViewRef<'Event'>
         <Stack alignCenter gap>
           <CalendarDays className="text-muted-foreground" size={14} />
           <span className="text-sm text-foreground/80">
-            {formatDateTime(event.startAt)} → {formatDateTime(event.endAt)}
+            <EventDateTime endAt={event.endAt} startAt={event.startAt} />
           </span>
         </Stack>
         <Stack alignCenter gap>

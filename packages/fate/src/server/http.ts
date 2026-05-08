@@ -108,6 +108,7 @@ type LiveConnection<Context> = {
   ctx: Context;
   draining?: boolean;
   drainInterval?: ReturnType<typeof setInterval>;
+  drainTimeout?: ReturnType<typeof setTimeout>;
   heartbeat?: ReturnType<typeof setInterval>;
   lastHeartbeat: number;
   queue: Array<
@@ -798,6 +799,10 @@ export function createFateServer<
       clearInterval(connection.drainInterval);
       connection.drainInterval = undefined;
     }
+    if (connection.drainTimeout) {
+      clearTimeout(connection.drainTimeout);
+      connection.drainTimeout = undefined;
+    }
     if (connection.heartbeat) {
       clearInterval(connection.heartbeat);
       connection.heartbeat = undefined;
@@ -943,6 +948,17 @@ export function createFateServer<
     }
   };
 
+  const scheduleLiveDrain = (connection: LiveConnection<Context>) => {
+    if (connection.closed || connection.drainTimeout) {
+      return;
+    }
+
+    connection.drainTimeout = setTimeout(() => {
+      connection.drainTimeout = undefined;
+      void drainLiveConnection(connection);
+    }, 0);
+  };
+
   const subscribeLiveOperation = (
     connection: LiveConnection<Context>,
     operation: FateLiveSubscribeOperation,
@@ -1015,6 +1031,7 @@ export function createFateServer<
             source,
             subscription,
           });
+          scheduleLiveDrain(connection);
         },
         {
           lastEventId: operation.lastEventId,
@@ -1136,6 +1153,7 @@ export function createFateServer<
             operation,
             subscription,
           });
+          scheduleLiveDrain(connection);
         },
         {
           lastEventId: operation.lastEventId,

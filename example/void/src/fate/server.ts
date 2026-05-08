@@ -1,6 +1,5 @@
 import {
   createFateServer,
-  createLiveEventBus,
   createSourcePlan,
   FateRequestError,
   getNestedSelection,
@@ -22,6 +21,7 @@ import {
 import schema, { comment, user as userTable } from '../../db/schema.ts';
 import { assertCanDeleteComment, getCommentDeleteFetchSelection } from './commentPermissions.ts';
 import { createContext, type AppContext } from './context.ts';
+import { live } from './live.ts';
 import { commentDataView, postDataView, Root, userDataView, type Post } from './views.ts';
 
 type ResolverOptions<Input> = {
@@ -39,12 +39,6 @@ const source = createDrizzleSourceAdapter<AppContext>({
   schema,
   views: Root,
 });
-
-const globals = globalThis as typeof globalThis & {
-  __fateVoidLive?: ReturnType<typeof createLiveEventBus>;
-};
-
-export const live = (globals.__fateVoidLive ??= createLiveEventBus());
 
 const requireUser = (ctx: AppContext) => {
   if (!ctx.sessionUser) {
