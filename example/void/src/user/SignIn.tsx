@@ -82,7 +82,7 @@ export default function SignIn() {
               as="a"
               className="inline-flex! px-1 underline hover:no-underline"
               gap={4}
-              href="https://github.com/nkzw-tech/fate/blob/main/example/server-prisma/src/prisma/seed.tsx#L7"
+              href="https://github.com/nkzw-tech/fate/blob/main/example/seedData.ts#L1"
               rel="noreferrer"
               target="_blank"
             >
