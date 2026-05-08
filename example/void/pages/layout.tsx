@@ -19,6 +19,17 @@ const Thinking = () => (
   </Section>
 );
 
+let serverFateFetchPromise: Promise<(request: Request) => Promise<Response>> | null = null;
+
+const getServerFateFetch = async () => {
+  serverFateFetchPromise ??= Promise.all([
+    import('@nkzw/fate/server'),
+    import('../src/fate/server.ts'),
+  ]).then(([{ createFateFetchHandler }, { fateServer }]) => createFateFetchHandler(fateServer));
+
+  return serverFateFetchPromise;
+};
+
 export default function Layout({ children }: { children: ReactNode }) {
   const shared = useShared<SharedData>();
   const userId = shared.auth.user?.id;
@@ -27,11 +38,13 @@ export default function Layout({ children }: { children: ReactNode }) {
   const fate = useMemo(
     () =>
       createFateClient({
-        fetch: (input, init) =>
-          fetch(input, {
-            ...init,
-            credentials: userId ? 'include' : init?.credentials,
-          }),
+        fetch: import.meta.env.SSR
+          ? async (input, init) => (await getServerFateFetch())(new Request(input, init))
+          : (input, init) =>
+              fetch(input, {
+                ...init,
+                credentials: userId ? 'include' : init?.credentials,
+              }),
         liveUrl: new URL('/fate/live', origin),
         url: new URL('/fate/rpc', origin),
       }),

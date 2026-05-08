@@ -4,13 +4,20 @@ import { defineSeed } from 'void/seed';
 import { categories, comments, events, posts, tags, users } from '../../seedData.ts';
 import { createAuth } from '../src/lib/auth.ts';
 import { createEventRecord, createPostRecord } from './queries.ts';
-import { category, comment, tag } from './schema.ts';
+import { category, comment, post, tag } from './schema.ts';
 
 export default defineSeed<typeof import('./schema.ts')>(async ({ db }) => {
   const auth = createAuth(db);
   const queryDb = db as unknown as Parameters<typeof createPostRecord>[1];
+  const [existingPost] = await db.select({ id: post.id }).from(post).limit(1);
 
   console.log(styleText('bold', '› Seeding database...'));
+
+  if (existingPost) {
+    console.log(styleText(['green', 'bold'], '✓ Database already contains seed data.'));
+    return;
+  }
+
   console.log(styleText('bold', `Creating users`));
 
   for (const data of users) {
