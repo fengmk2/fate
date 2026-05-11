@@ -9,8 +9,8 @@ import {
   type ViteDevServer,
 } from 'vite';
 import { createClientSource } from './codegen/client.ts';
+import type { FateViteTransport } from './viteTypes.ts';
 
-type ClientTransport = 'native' | 'trpc';
 type ClientRuntime = '@nkzw/fate' | 'react-fate';
 
 type ModuleExports = Record<string, unknown>;
@@ -19,9 +19,11 @@ export type FateVitePluginOptions = {
   clientModule?: ClientRuntime;
   generatedFile?: false | string;
   module: string;
-  transport?: ClientTransport;
+  transport?: FateViteTransport;
   tsconfigFile?: false | string;
 };
+
+export type { FateViteTransport };
 
 const defaultClientRuntime: ClientRuntime = '@nkzw/fate';
 const defaultClientModule = `${defaultClientRuntime}/client`;
@@ -52,6 +54,19 @@ const toGeneratedModuleName = ({
     fromFile,
     path.isAbsolute(moduleName) ? moduleName : path.resolve(root, moduleName),
   );
+};
+
+const toVirtualRuntimeModuleName = ({ moduleName, root }: { moduleName: string; root: string }) => {
+  if (!moduleName.startsWith('.') && !path.isAbsolute(moduleName)) {
+    return moduleName;
+  }
+
+  const resolvedModule = path.isAbsolute(moduleName) ? moduleName : path.resolve(root, moduleName);
+  const rootRelativeModule = path.relative(root, resolvedModule).replaceAll(path.sep, '/');
+
+  return rootRelativeModule.startsWith('..') || path.isAbsolute(rootRelativeModule)
+    ? `/@fs/${resolvedModule.replaceAll(path.sep, '/')}`
+    : `/${rootRelativeModule}`;
 };
 
 const writeIfChanged = async (file: string, contents: string) => {
@@ -156,6 +171,10 @@ export const fate = (options: FateVitePluginOptions): Plugin => {
       clientModule: options.clientModule ?? defaultClientRuntime,
       moduleExports,
       moduleName: options.module,
+      runtimeModuleName: toVirtualRuntimeModuleName({
+        moduleName: options.module,
+        root: config.root,
+      }),
       transport: options.transport ?? 'trpc',
     });
 

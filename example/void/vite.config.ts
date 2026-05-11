@@ -38,7 +38,7 @@ export default defineConfig({
     voidReact(),
     fate({
       module: './src/fate/server.ts',
-      transport: 'native',
+      transport: 'void',
     }),
   ],
   resolve: { conditions: ['@nkzw/source'] },

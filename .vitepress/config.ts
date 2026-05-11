@@ -77,6 +77,7 @@ export default defineConfig({
           { link: '/guide/actions', text: 'Actions' },
           { link: '/guide/requests', text: 'Requests' },
           { link: '/guide/server-integration', text: 'Server Integration' },
+          { link: '/guide/void-integration', text: 'Void Integration' },
         ],
         text: 'Guide',
       },

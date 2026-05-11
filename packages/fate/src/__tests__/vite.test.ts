@@ -73,3 +73,37 @@ test('serves the generated client as JavaScript', async () => {
     await server.close();
   }
 });
+
+test('serves the Void generated client with a root-resolved server runtime import', async () => {
+  setExampleEnv();
+
+  const server = await createServer({
+    configFile: false,
+    logLevel: 'silent',
+    plugins: [
+      fate({
+        clientModule: 'react-fate',
+        generatedFile: false,
+        module: './src/fate/server.ts',
+        transport: 'void',
+        tsconfigFile: false,
+      }),
+    ],
+    resolve: { conditions: ['@nkzw/source'] },
+    root: path.resolve(import.meta.dirname, '../../../../example/void'),
+    server: { middlewareMode: true },
+  });
+
+  try {
+    const resolved = await server.pluginContainer.resolveId('react-fate/client');
+    expect(resolved?.id).toBe('\0@nkzw/fate/client.ts');
+
+    const loaded = await server.pluginContainer.load(resolved!.id);
+    const code = typeof loaded === 'string' ? loaded : loaded?.code;
+
+    expect(code).toMatch(/import\(["']\/src\/fate\/server\.ts["']\)/);
+    expect(code).not.toMatch(/import\(["']\.\/src\/fate\/server\.ts["']\)/);
+  } finally {
+    await server.close();
+  }
+});

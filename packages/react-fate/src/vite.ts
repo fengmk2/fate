@@ -1,9 +1,9 @@
-import { fate as coreFate } from '@nkzw/fate/vite';
+import { fate as coreFate, type FateViteTransport } from '@nkzw/fate/vite';
 
 export type FateVitePluginOptions = {
   generatedFile?: false | string;
   module: string;
-  transport?: 'native' | 'trpc';
+  transport?: FateViteTransport;
   tsconfigFile?: false | string;
 };
 

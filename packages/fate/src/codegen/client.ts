@@ -1,3 +1,4 @@
+import type { FateViteTransport } from '../viteTypes.ts';
 import { createSchema, isDataView } from './schema.ts';
 
 type ModuleExports = Record<string, any>;
@@ -37,15 +38,23 @@ export const createClientSource = ({
   clientModule = 'react-fate',
   moduleExports,
   moduleName,
+  runtimeModuleName = moduleName,
   transport = 'trpc',
 }: {
   clientModule?: ClientModule;
   moduleExports: ModuleExports;
   moduleName: string;
-  transport?: 'native' | 'trpc';
+  runtimeModuleName?: string;
+  transport?: FateViteTransport;
 }) => {
-  if (transport === 'native') {
-    return createNativeClientSource({ clientModule, moduleExports, moduleName });
+  if (transport === 'native' || transport === 'void') {
+    return createNativeClientSource({
+      clientModule,
+      moduleExports,
+      moduleName,
+      runtimeModuleName,
+      voidTransport: transport === 'void',
+    });
   }
 
   const { appRouter, Root } = moduleExports;
@@ -329,10 +338,14 @@ const createNativeClientSource = ({
   clientModule,
   moduleExports,
   moduleName,
+  runtimeModuleName,
+  voidTransport,
 }: {
   clientModule: ClientModule;
   moduleExports: ModuleExports;
   moduleName: string;
+  runtimeModuleName: string;
+  voidTransport: boolean;
 }) => {
   const { Root } = moduleExports;
   const fateExportName = moduleExports.fate?.manifest
@@ -411,6 +424,125 @@ const createNativeClientSource = ({
   const rootBlock = indentBlock(rootEntries.map((entry) => entry.value).join('\n'), 2);
   const mutationConfigBlock = indentBlock(mutationConfigLines.join('\n'), 2);
   const clientDeclarationModule = `${clientModule}/client`;
+  const voidServerFetch = voidTransport
+    ? `
+import type { FateServer } from '@nkzw/fate/server';
+
+const defaultVoidFateRpcPath = '/fate';
+const defaultVoidFateLivePath = '/fate-live';
+
+let serverFateFetchPromise: Promise<(request: Request) => Promise<Response>> | null = null;
+
+const isFateServer = (value: unknown): value is FateServer<unknown> =>
+  Boolean(value && typeof value === 'object' && 'manifest' in value);
+
+const getServerFateFetch = async () => {
+  serverFateFetchPromise ??= Promise.all([
+    import('@nkzw/fate/server'),
+    import('${runtimeModuleName}'),
+  ]).then(([{ createFateFetchHandler }, serverModule]) => {
+    const moduleRecord = serverModule as Record<string, unknown>;
+    const server = isFateServer(moduleRecord.fate)
+      ? moduleRecord.fate
+      : isFateServer(moduleRecord.fateServer)
+        ? moduleRecord.fateServer
+        : null;
+
+    if (!server) {
+      throw new Error('void-fate: Expected the server module to export a Fate server named "fate" or "fateServer".');
+    }
+
+    return createFateFetchHandler(server);
+  });
+
+  return serverFateFetchPromise;
+};
+
+const getDefaultOrigin = () =>
+  typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+
+const toEndpointUrl = (url: string | URL | undefined, path: string, origin: string | URL) =>
+  url ?? new URL(path, origin);
+
+const createVoidFetch = (options: {
+  fetch?: typeof fetch;
+  userId?: null | string;
+}): typeof fetch => {
+  if (options.fetch) {
+    return options.fetch;
+  }
+
+  if (import.meta.env.SSR) {
+    return async (input, init) => (await getServerFateFetch())(new Request(input, init));
+  }
+
+  return (input, init) =>
+    fetch(input, {
+      ...init,
+      credentials: options.userId ? 'include' : init?.credentials,
+    });
+};
+`
+    : '';
+  const createClientOptions = voidTransport
+    ? `options: {
+  fetch?: typeof fetch;
+  headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
+  livePath?: string;
+  liveRetryMs?: number;
+  liveUrl?: string | URL;
+  onLiveError?: (error: unknown) => void;
+  origin?: string | URL;
+  rpcPath?: string;
+  url?: string | URL;
+  userId?: null | string;
+} = {}`
+    : `options: {
+  fetch?: typeof fetch;
+  headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
+  liveRetryMs?: number;
+  liveUrl?: string | URL;
+  onLiveError?: (error: unknown) => void;
+  url: string | URL;
+}`;
+  const clientSetup = voidTransport
+    ? ` => {
+  const origin = options.origin ?? getDefaultOrigin();
+
+  return createClient<[GeneratedClientRoots, GeneratedClientMutations]>({
+    mutations,
+    onLiveError: options.onLiveError,
+    roots,
+    transport: createHTTPTransport<FateAPI>({
+      fetch: createVoidFetch(options),
+      headers: options.headers,
+      live: ${String(hasLive)},
+      liveRetryMs: options.liveRetryMs,
+      liveUrl: toEndpointUrl(
+        options.liveUrl,
+        options.livePath ?? defaultVoidFateLivePath,
+        origin,
+      ),
+      url: toEndpointUrl(options.url, options.rpcPath ?? defaultVoidFateRpcPath, origin),
+    }),
+    types: ${typesBlock.trimStart()},
+  });
+}`
+    : ` =>
+  createClient<[GeneratedClientRoots, GeneratedClientMutations]>({
+    mutations,
+    onLiveError: options.onLiveError,
+    roots,
+    transport: createHTTPTransport<FateAPI>({
+      fetch: options.fetch,
+      headers: options.headers,
+      live: ${String(hasLive)},
+      liveRetryMs: options.liveRetryMs,
+      liveUrl: options.liveUrl,
+      url: options.url,
+    }),
+    types: ${typesBlock.trimStart()},
+  })`;
 
   const generatedClientTypes = `
 declare module '${clientDeclarationModule}' {
@@ -426,6 +558,7 @@ declare module '${clientDeclarationModule}' {
   return `// @generated by @nkzw/fate/vite
 import type { ${importedTypes.join(', ')} } from '${moduleName}';
 import { clientRoot, createClient, createHTTPTransport, mutation, type InferFateAPI } from '${clientModule}';
+${voidServerFetch}
 
 type FateAPI = InferFateAPI<typeof fateServer>;
 
@@ -440,28 +573,7 @@ ${rootBlock}
 export type GeneratedClientMutations = typeof mutations;
 export type GeneratedClientRoots = typeof roots;
 
-export const createFateClient = (options: {
-  fetch?: typeof fetch;
-  headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
-  liveRetryMs?: number;
-  liveUrl?: string | URL;
-  onLiveError?: (error: unknown) => void;
-  url: string | URL;
-}) =>
-  createClient<[GeneratedClientRoots, GeneratedClientMutations]>({
-    mutations,
-    onLiveError: options.onLiveError,
-    roots,
-    transport: createHTTPTransport<FateAPI>({
-      fetch: options.fetch,
-      headers: options.headers,
-      live: ${String(hasLive)},
-      liveRetryMs: options.liveRetryMs,
-      liveUrl: options.liveUrl,
-      url: options.url,
-    }),
-    types: ${typesBlock.trimStart()},
-  });
+export const createFateClient = (${createClientOptions})${clientSetup};
 
 type GeneratedCreateFateClient = typeof createFateClient;
 ${generatedClientTypes}
