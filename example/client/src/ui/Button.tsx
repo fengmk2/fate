@@ -1,6 +1,7 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { ButtonHTMLAttributes, useTransition } from 'react';
+import { type ButtonHTMLAttributes, type ReactNode, useOptimistic, useTransition } from 'react';
+import { useFormStatus } from 'react-dom';
 import cx from '../lib/cx.tsx';
 
 const buttonVariants = cva(
@@ -59,4 +60,49 @@ const Button = ({
   );
 };
 
-export { Button, buttonVariants };
+const AsyncButton = ({
+  action,
+  asChild = false,
+  children,
+  className,
+  disabled,
+  pendingPlaceholder = '...',
+  size,
+  variant,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants> & {
+    action?: () => Promise<unknown> | unknown;
+    asChild?: boolean;
+    pendingPlaceholder?: ReactNode;
+  }) => {
+  const Component = asChild ? Slot : 'button';
+
+  const [optimisticIsPending, setOptimisticIsPending] = useOptimistic(false);
+  const [transitionIsPending, startTransition] = useTransition();
+  const { pending: formIsPending } = useFormStatus();
+
+  const isPending = transitionIsPending || optimisticIsPending || formIsPending;
+
+  const onClick = action
+    ? () => {
+        startTransition(async () => {
+          setOptimisticIsPending(true);
+          await action();
+        });
+      }
+    : undefined;
+
+  return (
+    <Component
+      className={cx(buttonVariants({ className, size, variant }))}
+      disabled={disabled || isPending || undefined}
+      onClick={onClick}
+      {...props}
+    >
+      {isPending ? pendingPlaceholder : children}
+    </Component>
+  );
+};
+
+export { AsyncButton, Button, buttonVariants };

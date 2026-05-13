@@ -1,7 +1,7 @@
 import Stack, { VStack } from '@nkzw/stack';
 import { useRouter, useShared } from '@void/react';
 import { ExternalLinkIcon } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import type { SharedData } from '../lib/shared.ts';
 import { Button } from '../ui/Button.tsx';
 import Card from '../ui/Card.tsx';
@@ -15,9 +15,7 @@ export default function SignIn() {
   const router = useRouter();
   const { auth } = useShared<SharedData>();
 
-  const signIn = async (event: FormEvent) => {
-    event.preventDefault();
-
+  const [, signInAction] = useActionState(async () => {
     await AuthClient.signIn.email(
       {
         email,
@@ -32,7 +30,9 @@ export default function SignIn() {
         },
       },
     );
-  };
+
+    return null;
+  }, null);
 
   useEffect(() => {
     if (auth.user) {
@@ -51,9 +51,10 @@ export default function SignIn() {
       <Stack gap={32} wrap>
         <Card className="w-84">
           <Stack gap vertical>
-            <VStack as="form" gap={12} onSubmit={signIn}>
+            <VStack action={signInAction} as="form" gap={12}>
               <Input
                 className="w-48"
+                name="email"
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="email"
                 type="email"
@@ -61,6 +62,7 @@ export default function SignIn() {
               />
               <Input
                 className="w-48"
+                name="password"
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="password"
                 type="password"

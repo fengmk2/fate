@@ -2,18 +2,18 @@ import Stack, { VStack } from '@nkzw/stack';
 import { CircleMinus, CirclePlus } from 'lucide-react';
 import { Activity, useState } from 'react';
 import { ConnectionRef, useListView, useRequest, ViewRef } from 'react-fate';
-import { Link } from 'react-router';
-import cx from '../lib/cx.tsx';
-import { Button } from '../ui/Button.tsx';
-import Card from '../ui/Card.tsx';
-import CategoryCard, { CategoryView } from '../ui/CategoryCard.tsx';
-import CreatePost from '../ui/CreatePost.tsx';
-import EventCard, { EventView } from '../ui/EventCard.tsx';
-import H2 from '../ui/H2.tsx';
-import { PostCard, PostView } from '../ui/PostCard.tsx';
-import Section from '../ui/Section.tsx';
-import UserCard, { UserCardView } from '../ui/UserCard.tsx';
-import AuthClient from '../user/AuthClient.tsx';
+import cx from '../src/lib/cx.tsx';
+import { Button } from '../src/ui/Button.tsx';
+import Card from '../src/ui/Card.tsx';
+import CategoryCard, { CategoryView } from '../src/ui/CategoryCard.tsx';
+import CreatePost from '../src/ui/CreatePost.tsx';
+import EventCard, { EventView } from '../src/ui/EventCard.tsx';
+import H2 from '../src/ui/H2.tsx';
+import Link from '../src/ui/Link.tsx';
+import { PostCard, PostView } from '../src/ui/PostCard.tsx';
+import Section from '../src/ui/Section.tsx';
+import UserCard, { UserCardView } from '../src/ui/UserCard.tsx';
+import AuthClient from '../src/user/AuthClient.tsx';
 
 const PostConnectionView = {
   args: { first: 3 },
@@ -98,7 +98,7 @@ const EventFeed = ({ events }: { events: Array<ViewRef<'Event'>> }) =>
     </VStack>
   ) : null;
 
-export default function HomeRoute() {
+export default function HomePage() {
   const { data: session } = AuthClient.useSession();
   const user = session?.user;
   const { categories, events, posts, viewer } = useRequest({

@@ -1,5 +1,7 @@
 .fate/
 **/.fate/
+.void/
+**/.void/
 .eslintcache
 .pnpm-debug.log
 **/node_modules/

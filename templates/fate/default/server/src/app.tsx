@@ -4,7 +4,7 @@ import { trpcServer } from '@hono/trpc-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { auth } from './lib/auth.ts';
-import env from './lib/env.ts';
+import { clientOrigin, resolveCorsOrigin } from './lib/origins.ts';
 import prisma from './prisma/prisma.ts';
 import { appRouter } from './router.ts';
 import { createContext } from './trpc/context.ts';
@@ -16,13 +16,12 @@ try {
   process.exit(1);
 }
 
-const origin = env('CLIENT_DOMAIN');
 const app = new Hono();
 
 app.use(
   cors({
     credentials: true,
-    origin,
+    origin: resolveCorsOrigin,
   }),
 );
 
@@ -36,6 +35,6 @@ app.use(
 
 app.on(['POST', 'GET'], '/api/auth/*', ({ req }) => auth.handler(req.raw));
 
-app.all('/*', (context) => context.redirect(origin));
+app.all('/*', (context) => context.redirect(clientOrigin));
 
 export default app;

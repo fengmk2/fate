@@ -7,7 +7,7 @@ import { createHonoFateHandler } from '@nkzw/fate/server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { auth } from './lib/auth.tsx';
-import env from './lib/env.ts';
+import { clientOrigin, resolveCorsOrigin } from './lib/origins.ts';
 import prisma from './prisma/prisma.tsx';
 import { createContext } from './trpc/context.ts';
 import { fateServer } from './trpc/init.ts';
@@ -32,14 +32,13 @@ const {
   },
 });
 
-const origin = env('CLIENT_DOMAIN');
 const port = (portArg && parseInteger(portArg)) || 9020;
 const app = new Hono();
 
 app.use(
   cors({
     credentials: true,
-    origin,
+    origin: resolveCorsOrigin,
   }),
 );
 
@@ -55,7 +54,7 @@ app.all('/fate/*', createHonoFateHandler(fateServer));
 
 app.on(['POST', 'GET'], '/api/auth/*', ({ req }) => auth.handler(req.raw));
 
-app.all('/*', (context) => context.redirect(origin));
+app.all('/*', (context) => context.redirect(clientOrigin));
 
 serve({ fetch: app.fetch, port }, () =>
   console.log(

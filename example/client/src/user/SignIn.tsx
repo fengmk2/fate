@@ -1,8 +1,8 @@
 import Stack, { VStack } from '@nkzw/stack';
+import { useRouter } from '@void/react';
 import { ExternalLinkIcon } from 'lucide-react';
-import { FormEvent, useState } from 'react';
-import { Navigate } from 'react-router';
-import { Button } from '../ui/Button.tsx';
+import { useActionState, useEffect, useState } from 'react';
+import { AsyncButton } from '../ui/Button.tsx';
 import Card from '../ui/Card.tsx';
 import H2 from '../ui/H2.tsx';
 import Input from '../ui/Input.tsx';
@@ -11,11 +11,10 @@ import AuthClient from './AuthClient.tsx';
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const router = useRouter();
   const { data: session } = AuthClient.useSession();
 
-  const signIn = async (event: FormEvent) => {
-    event.preventDefault();
-
+  const [, signInAction] = useActionState(async () => {
     await AuthClient.signIn.email(
       {
         email,
@@ -24,13 +23,25 @@ export default function SignIn() {
       {
         onError: () => {},
         onRequest: () => {},
-        onSuccess: () => {},
+        onSuccess: () => {
+          router.flushAll();
+          void router.visit('/', { replace: true });
+        },
       },
     );
-  };
+
+    return null;
+  }, null);
+
+  useEffect(() => {
+    if (session) {
+      router.flushAll();
+      void router.visit('/', { replace: true });
+    }
+  }, [router, session]);
 
   if (session) {
-    return <Navigate replace to="/" />;
+    return null;
   }
 
   return (
@@ -39,9 +50,10 @@ export default function SignIn() {
       <Stack gap={32} wrap>
         <Card className="w-84">
           <Stack gap vertical>
-            <VStack as="form" gap={12} onSubmit={signIn}>
+            <VStack action={signInAction} as="form" gap={12}>
               <Input
                 className="w-48"
+                name="email"
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="email"
                 type="email"
@@ -49,15 +61,16 @@ export default function SignIn() {
               />
               <Input
                 className="w-48"
+                name="password"
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="password"
                 type="password"
                 value={password}
               />
               <div>
-                <Button type="submit" variant="outline">
+                <AsyncButton type="submit" variant="outline">
                   Sign In
-                </Button>
+                </AsyncButton>
               </div>
             </VStack>
           </Stack>

@@ -1,14 +1,14 @@
 import Stack from '@nkzw/stack';
+import { useRouter } from '@void/react';
 import { ChevronLeft, LogIn, LogOut, Search } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router';
 import AuthClient from '../user/AuthClient.tsx';
 import { Button } from './Button.tsx';
 import Link from './Link.tsx';
 import LocaleSwitcher from './LocaleSwitcher.tsx';
 
 export default function Header() {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const router = useRouter();
+  const pathname = router.path;
   const { data: session, isPending } = AuthClient.useSession();
 
   return (
@@ -20,10 +20,10 @@ export default function Header() {
         gap={16}
       >
         <Link
+          href="/"
           onClick={() =>
-            pathname !== '/' && history.state?.idx > 0 ? navigate(-1) : navigate('/')
+            pathname !== '/' && history.state?.idx > 0 ? history.back() : router.visit('/')
           }
-          to="/"
         >
           <Stack alignCenter gap={12}>
             <div className="squircle relative flex h-10 w-10 items-center justify-center bg-linear-to-br from-gray-100 to-gray-200 text-white shadow-lg shadow-gray-500/20 transition duration-250 hover:scale-110 active:scale-90">

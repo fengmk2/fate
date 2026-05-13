@@ -12,12 +12,12 @@ import {
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useFateClient, useListView, useView, view, ViewRef } from 'react-fate';
-import { Link } from 'react-router';
 import { Button } from '../ui/Button.tsx';
 import Card from '../ui/Card.tsx';
 import AuthClient from '../user/AuthClient.tsx';
 import CommentCard, { CommentView } from './CommentCard.tsx';
 import H3 from './H3.tsx';
+import Link from './Link.tsx';
 import { UserView } from './UserCard.tsx';
 
 const CommentConnectionView = {

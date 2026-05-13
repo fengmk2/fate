@@ -1,6 +1,13 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { ButtonHTMLAttributes, useTransition } from 'react';
+import {
+  type ButtonHTMLAttributes,
+  type MouseEvent,
+  type ReactNode,
+  useOptimistic,
+  useTransition,
+} from 'react';
+import { useFormStatus } from 'react-dom';
 import cx from '../lib/cx.tsx';
 
 const buttonVariants = cva(
@@ -32,30 +39,53 @@ const buttonVariants = cva(
 const Button = ({
   action,
   asChild = false,
+  children,
   className,
   disabled,
   onClick: initialOnClick,
+  pendingPlaceholder = '...',
   size,
+  type,
   variant,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof buttonVariants> & {
-    action?: () => void;
+    action?: () => Promise<unknown> | unknown;
     asChild?: boolean;
+    pendingPlaceholder?: ReactNode;
   }) => {
   const Component = asChild ? Slot : 'button';
 
-  const [isPending, startTransition] = useTransition();
+  const [optimisticIsPending, setOptimisticIsPending] = useOptimistic(false);
+  const [transitionIsPending, startTransition] = useTransition();
+  const { pending: formIsPending } = useFormStatus();
 
-  const onClick = initialOnClick || (action ? () => startTransition(action) : undefined);
+  const onClick = (event: MouseEvent<HTMLButtonElement>) => {
+    initialOnClick?.(event);
+
+    if (!action || event.defaultPrevented) {
+      return;
+    }
+
+    event.preventDefault();
+    startTransition(async () => {
+      setOptimisticIsPending(true);
+      await action();
+    });
+  };
+
+  const isPending = transitionIsPending || optimisticIsPending || formIsPending;
 
   return (
     <Component
       className={cx(buttonVariants({ className, size, variant }))}
-      disabled={disabled !== undefined ? disabled : isPending}
-      onClick={onClick}
+      disabled={disabled || isPending || undefined}
+      onClick={initialOnClick || action ? onClick : undefined}
+      type={type}
       {...props}
-    />
+    >
+      {isPending ? pendingPlaceholder : children}
+    </Component>
   );
 };
 

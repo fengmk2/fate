@@ -62,8 +62,8 @@ class MockEventSource {
     }
   }
 
-  message(data: unknown) {
-    this.emit('message', { data: JSON.stringify(data) } as MessageEvent);
+  message(data: unknown, type = 'message') {
+    this.emit(type, { data: JSON.stringify(data) } as MessageEvent);
   }
 
   removeEventListener(type: string, listener: (event: Event) => void) {
@@ -274,7 +274,7 @@ test('omits native SSE live support when disabled', () => {
   expect(transport.subscribeById).toBeUndefined();
 });
 
-test('supports native SSE live subscriptions by default', async () => {
+test('handles named native SSE live entity events emitted by the server', async () => {
   const fetch = vi.fn(async () =>
     jsonResponse({
       results: [{ data: null, id: '1', ok: true }],
@@ -312,23 +312,29 @@ test('supports native SSE live subscriptions by default', async () => {
     version: 1,
   });
 
-  source.message({
-    event: { data: { id: '1', title: 'One' }, type: 'update' },
-    id: '1',
-    kind: 'next',
-  });
-  source.message({
-    event: { delete: true, id: '1', type: 'delete' },
-    id: '1',
-    kind: 'next',
-  });
+  source.message(
+    {
+      event: { data: { id: '1', title: 'One' }, type: 'update' },
+      id: '1',
+      kind: 'next',
+    },
+    'next',
+  );
+  source.message(
+    {
+      event: { delete: true, id: '1', type: 'delete' },
+      id: '1',
+      kind: 'next',
+    },
+    'next',
+  );
 
   expect(onData).toHaveBeenCalledWith({ id: '1', title: 'One' });
   expect(onDelete).toHaveBeenCalledWith('1');
   dispose?.();
 });
 
-test('supports native SSE live connection subscriptions', async () => {
+test('handles named native SSE live connection events emitted by the server', async () => {
   const fetch = vi.fn(async () =>
     jsonResponse({
       results: [{ data: null, id: '1', ok: true }],
@@ -366,18 +372,21 @@ test('supports native SSE live connection subscriptions', async () => {
     },
   ]);
 
-  source.message({
-    event: {
-      edge: {
-        cursor: 'cursor-1',
-        node: { id: '1', title: 'One' },
+  source.message(
+    {
+      event: {
+        edge: {
+          cursor: 'cursor-1',
+          node: { id: '1', title: 'One' },
+        },
+        nodeType: 'Post',
+        type: 'appendEdge',
       },
-      nodeType: 'Post',
-      type: 'appendEdge',
+      id: '1',
+      kind: 'connection',
     },
-    id: '1',
-    kind: 'connection',
-  });
+    'connection',
+  );
 
   expect(onEvent).toHaveBeenCalledWith({
     edge: {
@@ -387,6 +396,49 @@ test('supports native SSE live connection subscriptions', async () => {
     nodeType: 'Post',
     type: 'appendEdge',
   });
+  dispose?.();
+});
+
+test('handles named native SSE protocol errors emitted by the server', async () => {
+  const fetch = vi.fn(async () =>
+    jsonResponse({
+      results: [{ data: null, id: '1', ok: true }],
+      version: 1,
+    }),
+  );
+  const onError = vi.fn();
+  const transport = createHTTPTransport<{ mutations: Record<never, never> }>({
+    eventSource: resetMockEventSource(),
+    fetch,
+    url: 'http://local/fate',
+  });
+
+  const dispose = transport.subscribeById?.('Post', '1', new Set(['id']), undefined, {
+    onData: vi.fn(),
+    onError,
+  });
+
+  const source = await openLiveStream();
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+
+  source.message(
+    {
+      error: {
+        code: 'BAD_REQUEST',
+        message: 'Invalid live subscription.',
+      },
+      id: '1',
+      kind: 'error',
+    },
+    'error',
+  );
+
+  expect(onError).toHaveBeenCalledWith(
+    expect.objectContaining({
+      code: 'BAD_REQUEST',
+      message: 'Invalid live subscription.',
+    }),
+  );
   dispose?.();
 });
 

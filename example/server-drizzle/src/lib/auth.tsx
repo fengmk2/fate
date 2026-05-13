@@ -3,7 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { admin, username } from 'better-auth/plugins';
 import db from '../drizzle/db.ts';
 import schema from '../drizzle/schema.ts';
-import env from './env.ts';
+import { trustedOrigins } from './origins.ts';
 
 export const auth = betterAuth({
   advanced: {
@@ -29,5 +29,5 @@ export const auth = betterAuth({
     },
   },
   telemetry: { enabled: false },
-  trustedOrigins: [env('CLIENT_DOMAIN')],
+  trustedOrigins,
 });

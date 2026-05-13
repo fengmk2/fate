@@ -1,9 +1,9 @@
 import type { Category, Post } from '@nkzw/fate-server/src/trpc/views.ts';
 import Stack, { VStack } from '@nkzw/stack';
 import { useView, view, ViewRef } from 'react-fate';
-import { Link } from 'react-router';
 import { Badge } from '../ui/Badge.tsx';
 import Card from '../ui/Card.tsx';
+import Link from '../ui/Link.tsx';
 import TagBadge, { TagView } from '../ui/TagBadge.tsx';
 import { UserView } from '../ui/UserCard.tsx';
 import H3 from './H3.tsx';

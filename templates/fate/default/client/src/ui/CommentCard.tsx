@@ -3,8 +3,8 @@ import Stack from '@nkzw/stack';
 import { X } from 'lucide-react';
 import { useView, view, ViewRef } from 'react-fate';
 import { useFateClient } from 'react-fate';
-import { Link } from 'react-router';
 import { Button } from './Button.tsx';
+import Link from './Link.tsx';
 
 export const CommentView = view<Comment>()({
   author: {

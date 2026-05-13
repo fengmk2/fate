@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { admin, username } from 'better-auth/plugins';
 import prisma from '../prisma/prisma.tsx';
-import env from './env.ts';
+import { trustedOrigins } from './origins.ts';
 
 export const auth = betterAuth({
   advanced: {
@@ -27,5 +27,5 @@ export const auth = betterAuth({
     },
   },
   telemetry: { enabled: false },
-  trustedOrigins: [env('CLIENT_DOMAIN')],
+  trustedOrigins,
 });

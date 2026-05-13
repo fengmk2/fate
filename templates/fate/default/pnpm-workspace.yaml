@@ -5,7 +5,11 @@ packages:
 allowBuilds:
   '@prisma/engines': true
   '@swc/core': true
+  better-sqlite3: true
+  esbuild: true
   prisma: true
+  sharp: true
+  workerd: true
 
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@^0.1.20

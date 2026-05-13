@@ -2,8 +2,8 @@ import type { Comment } from '@nkzw/fate-server/src/trpc/views.ts';
 import Stack from '@nkzw/stack';
 import { X } from 'lucide-react';
 import { useFateClient, useView, view, ViewRef } from 'react-fate';
-import { Link } from 'react-router';
 import { Button } from './Button.tsx';
+import Link from './Link.tsx';
 
 export const CommentView = view<Comment>()({
   author: {

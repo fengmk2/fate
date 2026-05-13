@@ -1,11 +1,9 @@
 import { useRequest } from 'react-fate';
-import { useParams } from 'react-router';
-import { PostCard, PostView } from '../ui/PostCard.tsx';
-import Section from '../ui/Section.tsx';
+import { PostCard, PostView } from '../../src/ui/PostCard.tsx';
+import Section from '../../src/ui/Section.tsx';
+import type { Props } from './[id].server.ts';
 
-export default function PostRoute() {
-  const { id } = useParams();
-
+export default function PostPage({ id }: Props) {
   if (!id) {
     throw new Error('fate: Post ID is required.');
   }

@@ -411,13 +411,7 @@ export function createHTTPTransport<
           void control(resubscribe).catch(reportError);
         }
       });
-      source.addEventListener('error', (event) => {
-        if (!opened) {
-          rejectOpen?.(event);
-        }
-        reportError(event);
-      });
-      source.addEventListener('message', (event) => {
+      const handleLiveMessage = (event: Event) => {
         const message = JSON.parse((event as MessageEvent).data as string) as FateLiveMessage;
         const subscription = liveSubscriptions.get(message.id);
         if (!subscription) {
@@ -451,7 +445,22 @@ export function createHTTPTransport<
         if ('onData' in subscription.handlers) {
           subscription.handlers.onData(message.event.data);
         }
+      };
+
+      source.addEventListener('error', (event) => {
+        if ('data' in event) {
+          handleLiveMessage(event);
+          return;
+        }
+
+        if (!opened) {
+          rejectOpen?.(event);
+        }
+        reportError(event);
       });
+      source.addEventListener('message', handleLiveMessage);
+      source.addEventListener('next', handleLiveMessage);
+      source.addEventListener('connection', handleLiveMessage);
 
       nativeLiveClient = {
         add(operation) {

@@ -37,7 +37,7 @@ Next to [_fate_](https://fate.technology), it comes with the following technolog
 - [Tailwind](https://tailwindcss.com/)
 - [fbtee](https://github.com/nkzw-tech/fbtee) for i18n
 - [Better Auth](https://www.better-auth.com/) for authentication
-- [React Router](https://reactrouter.com/)
+- [Void Pages Router](https://void.cloud/docs)
 - [TypeScript](https://www.typescriptlang.org)
 - [pnpm](https://pnpm.io/)
 

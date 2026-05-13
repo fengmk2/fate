@@ -1,10 +1,11 @@
-import { AnchorHTMLAttributes } from 'react';
-import { LinkProps as LinkPropsT, Link as ReactRouterLink, useLocation } from 'react-router';
+import { Link as VoidLink } from '@void/react';
+import type { ComponentProps } from 'react';
 
-export type LinkProps = LinkPropsT & AnchorHTMLAttributes<HTMLAnchorElement>;
+export type LinkProps = Omit<ComponentProps<typeof VoidLink>, 'href'> & {
+  href?: string;
+  to?: string;
+};
 
-export default function Link({ ...props }: LinkPropsT) {
-  const { pathname: previousPathname } = useLocation();
-
-  return <ReactRouterLink {...props} state={{ previousPathname }} />;
+export default function Link({ href, to, ...props }: LinkProps) {
+  return <VoidLink href={href ?? to ?? '/'} {...props} />;
 }
