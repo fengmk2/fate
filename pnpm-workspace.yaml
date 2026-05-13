@@ -19,7 +19,7 @@ catalog:
 
 minimumReleaseAgeExclude:
   - vite-plus
-  - "@voidzero-dev/*"
+  - '@voidzero-dev/*'
 
 onlyBuiltDependencies:
   - '@prisma/client'
