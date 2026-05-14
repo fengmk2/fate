@@ -25,12 +25,18 @@ mkdir -p "${work_root}"
 node "${repo_root}/packages/create-fate/bin/create-fate.mjs" "${target_dir}" --template "${template}"
 
 if [[ -d "${target_dir}/server" ]]; then
-  cat >"${target_dir}/server/.env" <<'EOF'
-DATABASE_URL="postgresql://fate:echo@localhost:5432/fate"
-BETTER_AUTH_SECRET="local-template-ci-secret-with-enough-entropy"
-BETTER_AUTH_URL="http://localhost:9000"
-CLIENT_DOMAIN="http://localhost:5173"
-VITE_SERVER_URL="http://localhost:9000"
+  database_url="${DATABASE_URL:-postgresql://fate:echo@localhost:5432/fate}"
+  better_auth_secret="${BETTER_AUTH_SECRET:-local-template-ci-secret-with-enough-entropy}"
+  better_auth_url="${BETTER_AUTH_URL:-http://localhost:9000}"
+  client_domain="${CLIENT_DOMAIN:-http://localhost:5173}"
+  vite_server_url="${VITE_SERVER_URL:-http://localhost:9000}"
+
+  cat >"${target_dir}/server/.env" <<EOF
+DATABASE_URL="${database_url}"
+BETTER_AUTH_SECRET="${better_auth_secret}"
+BETTER_AUTH_URL="${better_auth_url}"
+CLIENT_DOMAIN="${client_domain}"
+VITE_SERVER_URL="${vite_server_url}"
 EOF
 fi
 
