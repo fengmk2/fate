@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -37,6 +38,7 @@ Create a new fate app.
 
 Options:
   --template, -t  Template variant to create
+  --no-setup      Skip dependency installation and fate client generation
   --help, -h      Show this help message
 `);
 };
@@ -49,6 +51,7 @@ const normalizePackageName = (name) =>
     .replaceAll(/^-+|-+$/g, '') || 'my-app';
 
 const parseArgs = (args) => {
+  let setup = true;
   let targetDir;
   let variant;
 
@@ -56,6 +59,11 @@ const parseArgs = (args) => {
     const arg = args[index];
     if (arg === '--help' || arg === '-h') {
       return { help: true };
+    }
+
+    if (arg === '--no-setup') {
+      setup = false;
+      continue;
     }
 
     if (arg === '--template' || arg === '-t' || arg === '--variant') {
@@ -81,7 +89,7 @@ const parseArgs = (args) => {
     throw new Error(`Unexpected argument: ${arg}`);
   }
 
-  return { targetDir, variant };
+  return { setup, targetDir, variant };
 };
 
 const validateTargetDir = (value) => {
@@ -267,6 +275,59 @@ const restoreTemplateFileNames = (dir) => {
   }
 };
 
+const copyExampleEnvFiles = (dir) => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      copyExampleEnvFiles(entryPath);
+      continue;
+    }
+
+    if (!entry.name.endsWith('.env.example')) {
+      continue;
+    }
+
+    const envPath = path.join(dir, entry.name.slice(0, -'.example'.length));
+    if (!fs.existsSync(envPath)) {
+      fs.copyFileSync(entryPath, envPath);
+    }
+  }
+};
+
+const runCommand = (command, args, cwd) => {
+  const result = spawnSync(command, args, {
+    cwd,
+    shell: process.platform === 'win32',
+    stdio: 'inherit',
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(`Command failed: ${[command, ...args].join(' ')}`);
+  }
+};
+
+const setupProject = (targetPath, selectedVariant) => {
+  runCommand('vp', ['install'], targetPath);
+
+  switch (selectedVariant) {
+    case 'prisma':
+      runCommand('vp', ['run', '--filter', '@app/server', 'dev:setup'], targetPath);
+      runCommand('vp', ['run', 'fate:generate'], targetPath);
+      break;
+    case 'void':
+      runCommand('vp', ['run', 'prepare:void'], targetPath);
+      runCommand('vp', ['run', 'fate:generate'], targetPath);
+      break;
+    default:
+      runCommand('vp', ['run', 'fate:generate'], targetPath);
+      break;
+  }
+};
+
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const resolveTemplateRoot = (template) => {
@@ -310,12 +371,17 @@ const main = async () => {
   fs.mkdirSync(targetPath, { recursive: true });
   fs.cpSync(templateRoot, targetPath, { recursive: true });
   restoreTemplateFileNames(targetPath);
+  copyExampleEnvFiles(targetPath);
   updatePackageJsonFiles(
     targetPath,
     targetPath,
     normalizePackageName(path.basename(targetDir)),
     fateDependencyVersions,
   );
+
+  if (options.setup) {
+    setupProject(targetPath, selectedVariant);
+  }
 
   const message = `Created ${variants[selectedVariant].label} fate app in ${targetDir}`;
   if (interactive) {

@@ -12,7 +12,7 @@ This template uses the Void pages router with Drizzle, `void-fate`, `react-fate`
 
 You'll need Node.js 24+ and [Vite+](https://viteplus.dev/guide/).
 
-- Run `vp install`.
-- Run `vp run dev:setup` to prepare Void, seed the local database, and generate the fate client.
+- Dependencies were installed, Void was prepared, and the fate client was generated when the app was created.
+- Run `vp run dev:setup` to seed the local database and regenerate local generated files.
 - Run `vp test` to run all tests.
 - Run `vp run dev` to run the app.

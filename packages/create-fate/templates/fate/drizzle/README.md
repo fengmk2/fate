@@ -57,8 +57,8 @@ Next to [_fate_](https://fate.technology), it comes with the following technolog
 
 You'll need Node.js 24+ and [Vite+](https://viteplus.dev/guide/).
 
-- Run `vp install`.
-- Copy `server/.env.example` to `server/.env`.
+- Dependencies were installed and the fate client was generated when the app was created.
+- Review `server/.env`, which is copied from `server/.env.example` when the app is created.
 - Set up a Postgres database locally or run `docker-compose up -d` to start Postgres in a Docker container.
 - Postgres setup:
 
@@ -70,8 +70,7 @@ ALTER DATABASE fate OWNER TO fate;
 
 Then, at the root of the project, run:
 
-- `vp run dev:setup` to create the database tables and seed initial data.
-- Run `vp run fate:generate` to regenerate the fate client code.
+- `vp run dev:setup` to create the database tables, seed initial data, and regenerate the fate client code.
 - Run `vp test` to run all tests.
 - Run `vp run dev` to run the client and server.
 - Visit `http://localhost:5173` to see the app in action.

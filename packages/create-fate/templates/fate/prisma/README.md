@@ -57,8 +57,8 @@ Next to [_fate_](https://fate.technology), it comes with the following technolog
 
 You'll need Node.js 24+ and [Vite+](https://viteplus.dev/guide/).
 
-- Run `vp install`.
-- Copy `server/.env.example` to `server/.env`.
+- Dependencies, the Prisma client, and the fate client were generated when the app was created.
+- Review `server/.env`, which is copied from `server/.env.example` when the app is created.
 - Set up a Postgres database locally or run `docker-compose up -d` to start Postgres in a Docker container.
 - Postgres setup:
 
@@ -72,8 +72,7 @@ Then, at the root of the project, run:
 
 - `vp run prisma migrate dev` to create the database and run the migrations.
 - You might want to run `vp run prisma migrate reset` and `vp run prisma db seed` to seed the database with initial data.
-- Run `vp run dev:setup` to generate the Prisma client.
-- Run `vp run fate:generate` to regenerate the fate client code.
+- Run `vp run dev:setup` to generate the Prisma client and regenerate the fate client code.
 - Run `vp test` to run all tests.
 - Run `vp run dev` to run the client and server.
 - Visit `http://localhost:5173` to see the app in action.

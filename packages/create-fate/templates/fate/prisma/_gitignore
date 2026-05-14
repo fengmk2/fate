@@ -12,6 +12,8 @@ client/source_strings.json
 client/src/translations/
 coverage/
 dist/
+server/.env
+server/.prod.env
 server/dist/
 server/src/prisma/prisma-client/
 tsconfig.tsbuildinfo

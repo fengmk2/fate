@@ -22,9 +22,12 @@ fi
 
 rm -rf "${target_dir}"
 mkdir -p "${work_root}"
-node "${repo_root}/packages/create-fate/bin/create-fate.mjs" "${target_dir}" --template "${template}"
+node "${repo_root}/packages/create-fate/bin/create-fate.mjs" "${target_dir}" --template "${template}" --no-setup
 
 if [[ -d "${target_dir}/server" ]]; then
+  test -f "${target_dir}/server/.env"
+  cmp -s "${target_dir}/server/.env.example" "${target_dir}/server/.env"
+
   database_url="${DATABASE_URL:-postgresql://fate:echo@localhost:5432/fate}"
   better_auth_secret="${BETTER_AUTH_SECRET:-local-template-ci-secret-with-enough-entropy}"
   better_auth_url="${BETTER_AUTH_URL:-http://localhost:9000}"

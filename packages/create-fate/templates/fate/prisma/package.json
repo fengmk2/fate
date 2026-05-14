@@ -14,7 +14,7 @@
     "dev": "npm-run-all --parallel dev:client dev:server",
     "dev:client": "cd client && vp dev",
     "dev:server": "cd server && vp run dev",
-    "dev:setup": "vp run --filter '@app/client' --filter '@app/server' dev:setup",
+    "dev:setup": "vp run --filter '@app/client' --filter '@app/server' dev:setup && vp run fate:generate",
     "fate:generate": "vp run --filter '@app/client' fate:generate",
     "prepare": "vp config",
     "prisma": "vp run --filter '@app/server' prisma"

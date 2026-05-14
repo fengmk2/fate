@@ -6,6 +6,8 @@ Create a new fate app:
 vp create fate my-app
 ```
 
+The generated app is installed and the fate client is generated during creation.
+
 Choose between these templates:
 
 - `void`: Void pages router with Drizzle.
