@@ -83,7 +83,10 @@ export default defineConfig({
       { collapsed: false, items: apiItems, text: 'API' },
       {
         collapsed: true,
-        items: [{ link: '/posts/introducing-fate', text: 'Introducing Fate' }],
+        items: [
+          //{ link: '/posts/fate-1.0', text: 'Fate 1.0' },
+          { link: '/posts/introducing-fate', text: 'Introducing Fate' },
+        ],
         text: 'Blog',
       },
     ],
