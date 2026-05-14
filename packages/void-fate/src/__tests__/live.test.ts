@@ -27,6 +27,22 @@ test('does not fail requests when live publishing is unavailable', async () => {
   ).resolves.toBe('ok');
 });
 
+test('publishes changed paths with entity live events', async () => {
+  const publish = vi.fn(() => Promise.resolve());
+  const stream = createTestStream(publish);
+  const { live, withContext } = createVoidFateLive();
+
+  await withContext({ env: {}, stream }, async () => {
+    live.update('Post', 'post-1', { changed: ['likes'], eventId: 'event-1' });
+  });
+
+  expect(publish).toHaveBeenCalledWith(
+    'entity:Post:post-1',
+    { changed: ['likes'], data: undefined, id: 'post-1' },
+    { eventId: 'event-1', type: 'update' },
+  );
+});
+
 test('publishes connection events through the live facade without failing requests', async () => {
   const publish = vi.fn(() => Promise.resolve());
   const stream = createTestStream(publish);

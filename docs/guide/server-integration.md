@@ -289,10 +289,13 @@ export const fate = createFateServer({
   sources,
 });
 
-live.update('Post', post.id, { eventId: `post:${post.id}:${Date.now()}` });
+live.update('Post', post.id, {
+  changed: ['likes'],
+  eventId: `post:${post.id}:${Date.now()}`,
+});
 ```
 
-`createLiveEventBus` is an in-memory fanout bus. It forwards `eventId` to SSE clients, but it does not replay events after reconnects. If your app needs lossless reconnect behavior, provide a durable live bus implementation that uses the `lastEventId` passed to `listen`, `listenConnection`, `subscribe`, and `subscribeConnection`.
+`changed` is optional. When provided, fate resolves only the changed fields selected by each live subscription and skips subscriptions that do not select those fields. `createLiveEventBus` is an in-memory fanout bus. It forwards `eventId` to SSE clients, but it does not replay events after reconnects. If your app needs lossless reconnect behavior, provide a durable live bus implementation that uses the `lastEventId` passed to `listen`, `listenConnection`, `subscribe`, and `subscribeConnection`.
 
 ## tRPC Fate Setup
 

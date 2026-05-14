@@ -40,6 +40,7 @@ export type FateProtocolResponse = Readonly<{
 export type FateLiveDataEvent = Readonly<{
   data: unknown;
   delete?: false;
+  select?: Array<string>;
   type?: 'data' | 'update';
 }>;
 

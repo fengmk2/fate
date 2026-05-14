@@ -14,6 +14,7 @@ export type LiveConnectionEventType =
   | 'prependNode';
 
 export type LiveSourceEvent = Readonly<{
+  changed?: ReadonlyArray<string>;
   data?: unknown;
   eventId?: string;
   id: string | number;
@@ -74,7 +75,12 @@ export type LiveEventBus = Readonly<{
   emit: (
     type: string,
     id: string | number,
-    options?: { data?: unknown; eventId?: string; type?: LiveEventType },
+    options?: {
+      changed?: ReadonlyArray<string>;
+      data?: unknown;
+      eventId?: string;
+      type?: LiveEventType;
+    },
   ) => void;
   listen?: (
     type: string,
@@ -99,7 +105,7 @@ export type LiveEventBus = Readonly<{
   update: (
     type: string,
     id: string | number,
-    options?: { data?: unknown; eventId?: string },
+    options?: { changed?: ReadonlyArray<string>; data?: unknown; eventId?: string },
   ) => void;
 }>;
 
@@ -180,10 +186,11 @@ const mergeEvents = <T>(
 /**
  * Creates a small in-memory event bus for Fate live view subscriptions.
  *
- * The bus only signals that an entity changed. The native live handler refetches
- * the selected record before sending it to clients. It does not persist events
- * or replay events after reconnects; provide a durable custom bus for lossless
- * `lastEventId` resume behavior.
+ * The bus signals that an entity changed and can optionally include changed
+ * field paths. The native live handler refetches the selected record, or only
+ * the changed selected fields when paths are provided, before sending it to
+ * clients. It does not persist events or replay events after reconnects; provide
+ * a durable custom bus for lossless `lastEventId` resume behavior.
  */
 export function createLiveEventBus(): LiveEventBus {
   const emitter = new EventEmitter();
@@ -191,6 +198,7 @@ export function createLiveEventBus(): LiveEventBus {
 
   const emit: LiveEventBus['emit'] = (type, id, options = {}) => {
     emitter.emit(eventName(type, id), {
+      changed: options.changed,
       data: options.data,
       eventId: options.eventId,
       id,

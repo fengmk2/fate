@@ -171,7 +171,7 @@ export const fateServer = createFateServer({
         live
           .connection('Post.comments', { id: input.postId })
           .appendNode('Comment', commentId, { node: liveComment ?? created });
-        live.update('Post', input.postId);
+        live.update('Post', input.postId, { changed: ['commentCount', 'comments'] });
 
         return created as CommentItem & { post?: { commentCount: number } };
       },
@@ -229,7 +229,7 @@ export const fateServer = createFateServer({
 
         if (existing.postId) {
           live.connection('Post.comments', { id: existing.postId }).deleteEdge('Comment', input.id);
-          live.update('Post', existing.postId);
+          live.update('Post', existing.postId, { changed: ['commentCount', 'comments'] });
         }
 
         return resolved;
@@ -312,7 +312,7 @@ export const fateServer = createFateServer({
           throw new Error('Post not found.');
         }
 
-        live.update('Post', input.id, { data: post });
+        live.update('Post', input.id, { changed: ['likes'], data: post });
 
         return post as Post;
       },
@@ -339,7 +339,7 @@ export const fateServer = createFateServer({
           throw new Error('Post not found.');
         }
 
-        live.update('Post', input.id, { data: post });
+        live.update('Post', input.id, { changed: ['likes'], data: post });
 
         return post as Post;
       },

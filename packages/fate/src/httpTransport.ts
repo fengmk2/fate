@@ -79,6 +79,13 @@ type LiveSubscription = {
   type: string;
 };
 
+type LiveEntityPayload = {
+  changed?: ReadonlyArray<string>;
+  data?: unknown;
+  id?: string | number;
+  select?: ReadonlyArray<string>;
+};
+
 type VoidLiveClientEvent<Data = unknown> = {
   data: Data;
   eventId?: string;
@@ -91,10 +98,94 @@ const reportSubscriptionError = (subscription: LiveSubscription, error: unknown)
   subscription.handlers.onError?.(error);
 };
 
+const notifyLiveData = (
+  handlers: Parameters<NonNullable<Transport['subscribeById']>>[4],
+  record: unknown,
+  select?: ReadonlyArray<string>,
+) => {
+  if (select) {
+    handlers.onData(record, select);
+    return;
+  }
+
+  handlers.onData(record);
+};
+
 const protocolError = (message: FateLiveMessage & { kind: 'error' }) =>
   new FateRequestError(message.error.code, message.error.message, {
     issues: message.error.issues,
   });
+
+const pathsIntersect = (left: string, right: string): boolean =>
+  left === right || left.startsWith(`${right}.`) || right.startsWith(`${left}.`);
+
+const filterLiveSelection = (
+  select: ReadonlyArray<string>,
+  changed?: ReadonlyArray<string>,
+): Array<string> | null => {
+  if (!changed) {
+    return null;
+  }
+
+  const changedPaths = changed.filter((path) => path.length > 0);
+  if (changedPaths.length === 0) {
+    return [];
+  }
+
+  const selected = select.filter((path) =>
+    changedPaths.some((changedPath) => pathsIntersect(path, changedPath)),
+  );
+  if (selected.length === 0) {
+    return [];
+  }
+
+  const result = new Set(selected);
+  result.add('id');
+
+  for (const path of select) {
+    if (!path.endsWith('.id')) {
+      continue;
+    }
+
+    const parentPath = path.slice(0, -'.id'.length);
+    if (selected.some((selectedPath) => pathsIntersect(selectedPath, parentPath))) {
+      result.add(path);
+    }
+  }
+
+  return [...result];
+};
+
+const hasSelectedDataPath = (value: unknown, segments: Array<string>): boolean => {
+  if (segments.length === 0) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every((entry) => hasSelectedDataPath(entry, segments));
+  }
+
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const [field, ...rest] = segments;
+  return field in value && hasSelectedDataPath(value[field], rest);
+};
+
+const canUseLivePayloadData = (data: unknown, select: ReadonlyArray<string>): boolean => {
+  if (!isRecord(data)) {
+    return false;
+  }
+
+  for (const path of select) {
+    if (!hasSelectedDataPath(data, path.split('.'))) {
+      return false;
+    }
+  }
+
+  return true;
+};
 
 const defaultFetch: FetchLike = (input, init) => globalThis.fetch(input, init);
 
@@ -443,7 +534,7 @@ export function createHTTPTransport<
         }
 
         if ('onData' in subscription.handlers) {
-          subscription.handlers.onData(message.event.data);
+          notifyLiveData(subscription.handlers, message.event.data, message.event.select);
         }
       };
 
@@ -496,11 +587,14 @@ export function createHTTPTransport<
       return nativeLiveClient;
     };
 
-    const fetchLiveRecord = async (subscription: LiveSubscription) => {
+    const fetchLiveRecord = async (
+      subscription: LiveSubscription,
+      select: ReadonlyArray<string> = subscription.select,
+    ) => {
       const [record] = await transport.fetchById(
         subscription.type,
         [subscription.targetId!],
-        subscription.select,
+        select,
         subscription.args,
       );
       return record;
@@ -545,7 +639,7 @@ export function createHTTPTransport<
       }
 
       const unsubscribePromise = getLiveClient()
-        .subscribe<{ data?: unknown; id?: string | number }>({
+        .subscribe<LiveEntityPayload>({
           id: liveId,
           onEvent(event) {
             if (event.type === 'delete') {
@@ -553,17 +647,26 @@ export function createHTTPTransport<
               return;
             }
 
-            if ('data' in event.data && event.data.data !== undefined) {
-              handlers.onData(event.data.data);
+            const explicitSelect = Array.isArray(event.data.select) ? event.data.select : null;
+            const liveSelect =
+              explicitSelect ?? filterLiveSelection(subscription.select, event.data.changed);
+            if (liveSelect?.length === 0) {
               return;
             }
 
-            void fetchLiveRecord(subscription)
+            if ('data' in event.data && event.data.data !== undefined) {
+              if (!liveSelect || canUseLivePayloadData(event.data.data, liveSelect)) {
+                notifyLiveData(handlers, event.data.data, liveSelect ?? undefined);
+                return;
+              }
+            }
+
+            void fetchLiveRecord(subscription, liveSelect ?? subscription.select)
               .then((record) => {
                 if (record == null) {
                   handlers.onDelete?.(id);
                 } else {
-                  handlers.onData(record);
+                  notifyLiveData(handlers, record, liveSelect ?? undefined);
                 }
               })
               .catch((error) => reportSubscriptionError(subscription, error));

@@ -71,11 +71,13 @@ export const fateServer = createFateServer({
 Your app can publish live updates through the normal fate live bus:
 
 ```tsx
-live.update('Post', postId);
+live.update('Post', postId, { changed: ['likes'] });
 live.connection('Post.comments', { id: postId }).appendNode('Comment', commentId, {
   node: comment,
 });
 ```
+
+`changed` is optional. Void still uses generic topic fanout, while fate uses the changed field paths to refetch or write only the selected fields affected by the event.
 
 ## Routes
 

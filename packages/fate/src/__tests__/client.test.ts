@@ -161,6 +161,66 @@ test('live view subscriptions merge pushed records into the cache', () => {
   dispose();
 });
 
+test('live view subscriptions preserve cached scalars outside narrowed updates', () => {
+  type LivePost = { __typename: 'Post'; id: string; likes: number; title: string };
+
+  let handlers: any;
+  const subscribeById = vi.fn((_type, _id, _select, _args, nextHandlers) => {
+    handlers = nextHandlers;
+    return vi.fn();
+  });
+  const client = createClient({
+    roots: {},
+    transport: {
+      async fetchById() {
+        return [];
+      },
+      subscribeById,
+    },
+    types: [{ fields: { likes: 'scalar', title: 'scalar' }, type: 'Post' }],
+  });
+
+  const PostView = view<LivePost>()({
+    id: true,
+    likes: true,
+    title: true,
+  });
+  const plan = getSelectionPlan(PostView, null);
+
+  client.write(
+    'Post',
+    {
+      __typename: 'Post',
+      id: 'post-1',
+      likes: 1,
+      title: 'Original title',
+    },
+    plan.paths,
+    undefined,
+    plan,
+  );
+
+  const postRef = client.ref<LivePost>('Post', 'post-1', PostView);
+  const dispose = client.subscribeLiveView(PostView, postRef);
+
+  handlers.onData(
+    {
+      __typename: 'Post',
+      id: 'post-1',
+      likes: 2,
+    },
+    ['id', 'likes'],
+  );
+
+  expect(client.store.read(toEntityId('Post', 'post-1'))).toMatchObject({
+    id: 'post-1',
+    likes: 2,
+    title: 'Original title',
+  });
+
+  dispose();
+});
+
 test('live view subscription errors are reported through the client out of band', async () => {
   let handlers: any;
   const onLiveError = vi.fn();

@@ -897,16 +897,14 @@ export class FateClient<Roots extends FateRoots, Mutations extends FateMutations
     let unsubscribe: () => void;
     try {
       unsubscribe = this.transport.subscribeById!(type, id, plan.paths, args, {
-        onData: (record) => {
+        onData: (record, liveSelect) => {
           if (!record || typeof record !== 'object') {
             return;
           }
 
           const pendingMask = this.getPendingOptimisticMask(entityId);
-          const selection = this.filterSelectionForPendingOptimistics(
-            entityId,
-            new Set(plan.paths),
-          );
+          const select = new Set(liveSelect ?? plan.paths);
+          const selection = this.filterSelectionForPendingOptimistics(entityId, select);
 
           this.write(
             type,
@@ -2407,7 +2405,7 @@ export class FateClient<Roots extends FateRoots, Mutations extends FateMutations
         const fieldArgs = plan?.args.get(fieldPath);
         const isFieldBlocked = blockedMask ? isCovered(blockedMask, fieldPath) : false;
         if (relationDescriptor === 'scalar') {
-          if (isFieldBlocked) {
+          if (isFieldBlocked || !Object.prototype.hasOwnProperty.call(record, key)) {
             continue;
           }
           result[key] = value;

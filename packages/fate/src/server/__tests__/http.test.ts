@@ -559,6 +559,53 @@ test('shapes supplied live update data for the subscription selection', async ()
   await reader.cancel();
 });
 
+test('live updates with changed paths fetch only intersecting selections', async () => {
+  const selectedPaths: Array<Array<string>> = [];
+  const { fate, live } = createServer({
+    postByIds: async ({ ids, plan }) => {
+      selectedPaths.push([...plan.selectedPaths]);
+      return posts.filter((post) => ids.includes(post.id));
+    },
+  });
+  const response = await fate.handleLiveRequest(
+    new Request('http://local/fate/live?connectionId=c1'),
+  );
+  const reader = response.body!.getReader();
+  await fate.handleLiveRequest(
+    postJSON('http://local/fate/live', {
+      connectionId: 'c1',
+      operations: [
+        {
+          entityId: '1',
+          id: 'sub-title',
+          kind: 'subscribe',
+          select: ['id', 'title'],
+          type: 'Post',
+        },
+        {
+          entityId: '1',
+          id: 'sub-likes',
+          kind: 'subscribe',
+          select: ['id', 'title', 'likes'],
+          type: 'Post',
+        },
+      ],
+      version: 1,
+    }),
+  );
+
+  live.update('Post', '1', { changed: ['likes'], eventId: 'evt-1' });
+  await reader.read();
+  const chunk = new TextDecoder().decode((await reader.read()).value);
+
+  expect(chunk).toContain('"id":"sub-likes"');
+  expect(chunk).toContain('"event":{"data":{"id":"1","likes":1},"select":["likes","id"]}');
+  expect(chunk).not.toContain('"id":"sub-title"');
+  expect(chunk).not.toContain('"title":"One"');
+  expect(selectedPaths.at(-1)?.sort()).toEqual(['id', 'likes']);
+  await reader.cancel();
+});
+
 test('sends queued live errors to the affected subscription', async () => {
   const { fate, live } = createServer({
     postByIds: async () => {

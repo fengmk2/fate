@@ -34,6 +34,7 @@ type FateLiveContext = {
 };
 
 type EntityPayload = Readonly<{
+  changed?: ReadonlyArray<string>;
   data?: unknown;
   id: string | number;
 }>;
@@ -89,11 +90,17 @@ export function createVoidFateLive(_options: VoidFateLiveOptions = {}): VoidFate
   const publishEntity = (
     type: string,
     id: string | number,
-    options: { data?: unknown; eventId?: string; type?: LiveEventType } = {},
+    options: {
+      changed?: ReadonlyArray<string>;
+      data?: unknown;
+      eventId?: string;
+      type?: LiveEventType;
+    } = {},
   ) => {
     publish(
       liveEntityTopic(type, id),
       {
+        changed: options.changed,
         data: options.data,
         id,
       },

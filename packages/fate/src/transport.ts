@@ -18,7 +18,7 @@ type TRPCListResult = {
 };
 
 type LiveEventHandlers = Readonly<{
-  onData: (record: unknown) => void;
+  onData: (record: unknown, select?: ReadonlyArray<string>) => void;
   onDelete?: (id?: string | number) => void;
   onError?: (error: unknown) => void;
 }>;

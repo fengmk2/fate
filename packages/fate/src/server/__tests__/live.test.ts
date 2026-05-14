@@ -6,12 +6,13 @@ test('live event bus yields update events', async () => {
   const iterator = live.subscribe('User', 'user-1')[Symbol.asyncIterator]();
   const next = iterator.next();
 
-  live.update('User', 'user-1', { eventId: 'event-1' });
+  live.update('User', 'user-1', { changed: ['name'], eventId: 'event-1' });
 
   await expect(next).resolves.toEqual({
     done: false,
     value: [
       {
+        changed: ['name'],
         eventId: 'event-1',
         id: 'user-1',
         type: 'update',

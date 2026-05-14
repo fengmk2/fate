@@ -62,7 +62,7 @@ export function App() {
 
 ## Server Setup
 
-Live views use an event bus. The bus only signals that an object changed; fate refetches the selected object through the same data view pipeline used by `byId` queries before sending it to the client.
+Live views use an event bus. By default, the bus signals that an object changed and fate refetches the selected object through the same data view pipeline used by `byId` queries before sending it to the client. Update events can also include changed field paths so fate only resolves the intersection of those paths and each active subscription.
 
 Pass a live event bus to `createFateServer` and expose the native handler:
 
@@ -170,6 +170,16 @@ export const postRouter = router({
 });
 ```
 
+This tells fate that the `Post` changed. Every active live view for that post refreshes using the selection it subscribed with.
+
+If you know which fields changed, pass them with `changed` to reduce the amount of data sent to each subscriber:
+
+```tsx
+live.update('Post', input.id, { changed: ['likes'] });
+```
+
+With this version, a live view that selected `likes` refreshes only `likes`, while a live view that only selected unrelated fields is skipped entirely.
+
 If a mutation changes a related object, emit for the object whose live view should refresh. For example, adding a comment usually changes the post's `commentCount` and `comments` list, so emit for the `Post`:
 
 ```tsx
@@ -182,7 +192,7 @@ export const commentRouter = router({
       },
     });
 
-    live.update('Post', input.postId);
+    live.update('Post', input.postId, { changed: ['commentCount', 'comments'] });
 
     return comment;
   }),
@@ -198,13 +208,16 @@ live.delete('Comment', input.id);
 If deleting the object also changes another object, emit an update for that object too:
 
 ```tsx
-live.update('Post', postId);
+live.update('Post', postId, { changed: ['commentCount', 'comments'] });
 ```
 
 You can pass an `eventId` when emitting. fate sends it on the native SSE event and includes the last received event ID when it resubscribes after a reconnect:
 
 ```tsx
-live.update('Post', input.id, { eventId: `post:${input.id}:${Date.now()}` });
+live.update('Post', input.id, {
+  changed: ['likes'],
+  eventId: `post:${input.id}:${Date.now()}`,
+});
 ```
 
 The default `createLiveEventBus` is an in-memory fanout bus and does not replay events that were emitted while a client was disconnected. Use a durable custom live bus if your deployment needs reconnects to catch up from `lastEventId`; otherwise the client receives future live events after it reconnects.

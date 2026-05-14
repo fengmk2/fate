@@ -108,7 +108,7 @@ export const postRouter = router({
         } as PostUpdateArgs),
       )) as Post;
 
-      live.update('Post', input.id);
+      live.update('Post', input.id, { changed: ['likes'] });
 
       return post;
     }),
@@ -166,7 +166,7 @@ export const postRouter = router({
         )) as Post;
       });
 
-      live.update('Post', input.id);
+      live.update('Post', input.id, { changed: ['likes'] });
 
       return post;
     }),

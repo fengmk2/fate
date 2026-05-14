@@ -314,7 +314,7 @@ test('handles named native SSE live entity events emitted by the server', async 
 
   source.message(
     {
-      event: { data: { id: '1', title: 'One' }, type: 'update' },
+      event: { data: { id: '1', title: 'One' }, select: ['id', 'title'], type: 'update' },
       id: '1',
       kind: 'next',
     },
@@ -329,7 +329,7 @@ test('handles named native SSE live entity events emitted by the server', async 
     'next',
   );
 
-  expect(onData).toHaveBeenCalledWith({ id: '1', title: 'One' });
+  expect(onData).toHaveBeenCalledWith({ id: '1', title: 'One' }, ['id', 'title']);
   expect(onDelete).toHaveBeenCalledWith('1');
   dispose?.();
 });
@@ -613,6 +613,67 @@ test('fetches entity records for live connector events without data', async () =
   });
 
   await vi.waitFor(() => expect(onData).toHaveBeenCalledWith({ id: '1', title: 'Fetched' }));
+  dispose?.();
+});
+
+test('fetches only changed selected paths for live connector events', async () => {
+  const fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? '{}'));
+    if (String(input) === 'http://local/fate/live') {
+      return jsonResponse({
+        accepted: true,
+        connectionId: body.connectionId,
+        results: body.operations.map((operation: { id: string; kind: 'subscribe' }) => ({
+          id: operation.id,
+          kind: operation.kind,
+          ok: true,
+        })),
+      });
+    }
+
+    return jsonResponse({
+      results: [
+        { data: [{ id: '1', likes: 5, title: 'Fetched' }], id: body.operations[0].id, ok: true },
+      ],
+      version: 1,
+    });
+  });
+  const onData = vi.fn();
+  const topic = liveEntityTopic('Post', '1');
+  const transport = createHTTPTransport<{ mutations: Record<never, never> }>({
+    eventSource: resetMockEventSource(),
+    fetch,
+    live: liveConnector(),
+    url: 'http://local/fate',
+  });
+
+  const dispose = transport.subscribeById?.(
+    'Post',
+    '1',
+    new Set(['id', 'title', 'likes']),
+    undefined,
+    {
+      onData,
+    },
+  );
+
+  const source = await openLiveStream();
+  source.message({
+    data: { changed: ['likes'], id: '1' },
+    subscriptionId: '1',
+    topic,
+    type: 'update',
+  });
+
+  await vi.waitFor(() =>
+    expect(onData).toHaveBeenCalledWith({ id: '1', likes: 5, title: 'Fetched' }, ['likes', 'id']),
+  );
+  const calls = fetch.mock.calls as unknown as Array<[string, RequestInit]>;
+  const byIdCall = calls.find(([input]) => input === 'http://local/fate');
+  expect(JSON.parse(String(byIdCall?.[1].body ?? '{}')).operations[0].select).toEqual([
+    'likes',
+    'id',
+  ]);
   dispose?.();
 });
 

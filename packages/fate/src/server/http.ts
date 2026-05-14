@@ -454,8 +454,58 @@ const sse = (message: FateLiveMessage, eventId?: string): string => {
 
 const sseComment = (message: string): string => `: ${message}\n\n`;
 
-const livePayload = (event: LiveSourceEvent, data: unknown): FateLiveEvent =>
-  event.type === 'delete' || data == null ? { delete: true, id: event.id } : { data };
+const livePayload = (
+  event: LiveSourceEvent,
+  data: unknown,
+  select?: ReadonlyArray<string>,
+): FateLiveEvent =>
+  event.type === 'delete' || data == null
+    ? { delete: true, id: event.id }
+    : {
+        data,
+        ...(select ? { select: [...select] } : undefined),
+      };
+
+const pathsIntersect = (left: string, right: string): boolean =>
+  left === right || left.startsWith(`${right}.`) || right.startsWith(`${left}.`);
+
+const filterLiveSelection = (
+  source: SourceDefinition<AnyRecord>,
+  select: ReadonlyArray<string>,
+  changed?: ReadonlyArray<string>,
+): Array<string> | null => {
+  if (!changed) {
+    return null;
+  }
+
+  const changedPaths = changed.filter((path) => path.length > 0);
+  if (changedPaths.length === 0) {
+    return [];
+  }
+
+  const selected = select.filter((path) =>
+    changedPaths.some((changedPath) => pathsIntersect(path, changedPath)),
+  );
+  if (selected.length === 0) {
+    return [];
+  }
+
+  const result = new Set(selected);
+  result.add(source.id);
+
+  for (const path of select) {
+    if (!path.endsWith('.id')) {
+      continue;
+    }
+
+    const parentPath = path.slice(0, -'.id'.length);
+    if (selected.some((selectedPath) => pathsIntersect(selectedPath, parentPath))) {
+      result.add(path);
+    }
+  }
+
+  return [...result];
+};
 
 const hasSelectedDataPath = (value: unknown, segments: Array<string>): boolean => {
   if (segments.length === 0) {
@@ -863,9 +913,14 @@ export function createFateServer<
 
         if (item.kind === 'entity') {
           const { event, operation, source } = item;
+          const select = filterLiveSelection(source, operation.select, event.changed);
+          if (select?.length === 0) {
+            continue;
+          }
+
           const input = {
             args: operation.args,
-            select: operation.select,
+            select: select ?? operation.select,
           };
           const data =
             event.type === 'delete'
@@ -882,7 +937,7 @@ export function createFateServer<
           sendLiveMessage(
             connection,
             {
-              event: livePayload(event, data),
+              event: livePayload(event, data, select ?? undefined),
               id: operation.id,
               kind: 'next',
             },
@@ -983,9 +1038,14 @@ export function createFateServer<
 
     const handleEvent = async (event: LiveSourceEvent) => {
       try {
+        const select = filterLiveSelection(source, operation.select, event.changed);
+        if (select?.length === 0) {
+          return;
+        }
+
         const input = {
           args: operation.args,
-          select: operation.select,
+          select: select ?? operation.select,
         };
         const data =
           event.type === 'delete'
@@ -1002,7 +1062,7 @@ export function createFateServer<
         sendLiveMessage(
           connection,
           {
-            event: livePayload(event, data),
+            event: livePayload(event, data, select ?? undefined),
             id: operation.id,
             kind: 'next',
           },

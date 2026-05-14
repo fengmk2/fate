@@ -117,7 +117,7 @@ export const postRouter = router({
         });
       }
 
-      live.update('Post', input.id);
+      live.update('Post', input.id, { changed: ['likes'] });
 
       return post as Post;
     }),
@@ -151,7 +151,7 @@ export const postRouter = router({
         });
       }
 
-      live.update('Post', input.id);
+      live.update('Post', input.id, { changed: ['likes'] });
 
       return post as Post;
     }),
