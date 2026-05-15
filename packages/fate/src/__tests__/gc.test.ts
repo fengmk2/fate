@@ -227,6 +227,68 @@ test(`'request' refetches fulfilled cache-first handles after gc collects their 
   expect(fetchList).toHaveBeenCalledTimes(2);
 });
 
+test(`'requestForRender' refetches fulfilled cache-first handles after gc collects their data`, async () => {
+  type Post = { __typename: 'Post'; id: string; title: string };
+
+  const fetchById = vi.fn(async () => [
+    {
+      __typename: 'Post',
+      id: 'post-1',
+      title: 'Detail',
+    },
+  ]);
+  const fetchList = vi.fn(async () => ({
+    items: [
+      {
+        cursor: undefined,
+        node: {
+          __typename: 'Post',
+          id: 'post-1',
+          title: 'Home',
+        },
+      },
+    ],
+    pagination: { hasNext: false, hasPrevious: false },
+  }));
+
+  const client = createGCClient({
+    gcReleaseBufferSize: 1,
+    roots: { post: clientRoot('Post'), posts: clientRoot('Post') },
+    transport: {
+      fetchById,
+      fetchList,
+    },
+    types: [{ fields: { title: 'scalar' }, type: 'Post' }],
+  });
+
+  const PostView = view<Post>()({ id: true, title: true });
+  const homeRequest = { posts: { list: PostView } };
+  const postRequest = { post: { id: 'post-1', view: PostView } };
+
+  const homeRetain = client.retain(homeRequest);
+  const firstHome = await client.requestForRender(homeRequest);
+  homeRetain.dispose();
+  await flushGarbageCollection();
+
+  expect(firstHome.posts.map((post) => post.id)).toEqual(['post-1']);
+  expect(fetchList).toHaveBeenCalledTimes(1);
+
+  const postRetain = client.retain(postRequest);
+  await client.request(postRequest);
+  postRetain.dispose();
+  await flushGarbageCollection();
+
+  expect(client.store.getListState('posts')).toBeUndefined();
+
+  const secondHomeRetain = client.retain(homeRequest);
+  const secondHome = await client.requestForRender(homeRequest);
+  secondHomeRetain.dispose();
+  await flushGarbageCollection();
+
+  expect(secondHome.posts.map((post) => post.id)).toEqual(['post-1']);
+  expect(fetchList).toHaveBeenCalledTimes(2);
+});
+
 test(`'gc' does not notify swept child records while their parent is being released`, async () => {
   type Tag = { __typename: 'Tag'; id: string; name: string };
   type Post = {

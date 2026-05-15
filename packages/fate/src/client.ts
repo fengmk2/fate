@@ -1771,15 +1771,18 @@ export class FateClient<Roots extends FateRoots, Mutations extends FateMutations
     const requestKey = descriptor.key;
     const existingRequest = this.requests.get(requestKey)?.get(mode);
     if (existingRequest) {
+      const isFulfilledCacheFirstWithMissingData =
+        mode === 'cache-first' &&
+        existingRequest.status === 'fulfilled' &&
+        !this.hasRequestData(existingRequest.descriptor);
+
       if (
-        revalidateExisting &&
         existingRequest.status !== 'pending' &&
-        (mode === 'network-only' ||
-          mode === 'stale-while-revalidate' ||
-          (mode === 'cache-first' &&
-            (existingRequest.status === 'rejected' ||
-              (existingRequest.status === 'fulfilled' &&
-                !this.hasRequestData(existingRequest.descriptor)))))
+        (isFulfilledCacheFirstWithMissingData ||
+          (revalidateExisting &&
+            (mode === 'network-only' ||
+              mode === 'stale-while-revalidate' ||
+              (mode === 'cache-first' && existingRequest.status === 'rejected'))))
       ) {
         this.executeRequestHandle(existingRequest, mode);
       }
