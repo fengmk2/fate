@@ -267,6 +267,94 @@ test('Drizzle many relations preserve falsy relation keys', async () => {
   ]);
 });
 
+test('Drizzle nested paginated relations limit concurrent child queries', async () => {
+  const postTable = pgTable('Post', {
+    id: text('id').notNull(),
+  });
+  const commentTable = pgTable('Comment', {
+    content: text('content').notNull(),
+    id: text('id').notNull(),
+    postId: text('postId').notNull(),
+  });
+
+  const commentView = dataView<{ content: string; id: string; postId: string }>('Comment')({
+    content: true,
+    id: true,
+  });
+  const postView = dataView<{
+    comments?: Array<{ content: string; id: string; postId: string }>;
+    id: string;
+  }>('Post')({
+    comments: list(commentView),
+    id: true,
+  });
+
+  let activeChildQueries = 0;
+  let maxActiveChildQueries = 0;
+  const postRows = Array.from({ length: 20 }, (_, index) => ({ id: `post-${index}` }));
+  const db = {
+    select: () => ({
+      from: (table: unknown) => {
+        const builder = {
+          limit: async () => {
+            activeChildQueries += 1;
+            maxActiveChildQueries = Math.max(maxActiveChildQueries, activeChildQueries);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            activeChildQueries -= 1;
+
+            return [
+              {
+                content: 'comment',
+                id: 'comment-1',
+                postId: 'post-1',
+              },
+            ];
+          },
+          orderBy: () => (table === postTable ? postRows : builder),
+          where: () => builder,
+        };
+
+        return builder;
+      },
+    }),
+  };
+  const adapter = createDrizzleSourceAdapter({
+    db,
+    views: [
+      {
+        relations: {
+          comments: {
+            foreignKey: 'postId',
+            localKey: 'id',
+          },
+        },
+        table: postTable,
+        view: postView,
+      },
+      {
+        table: commentTable,
+        view: commentView,
+      },
+    ],
+  });
+  const plan = createSourcePlan({
+    args: {
+      comments: {
+        first: 1,
+      },
+    },
+    select: ['comments.content'],
+    source: adapter.getSource(postView),
+  });
+
+  await adapter.fetchByIds({
+    ids: postRows.map((post) => post.id),
+    plan,
+  });
+
+  expect(maxActiveChildQueries).toBeLessThanOrEqual(10);
+});
+
 test('Drizzle one relations preserve falsy relation keys', async () => {
   const commentTable = pgTable('Comment', {
     authorId: text('authorId').notNull(),

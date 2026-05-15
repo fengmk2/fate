@@ -395,6 +395,18 @@ export const fate = createDrizzleFate<AppContext, typeof procedure>({
 
 The Drizzle adapter builds SQL queries from your registered data views. It selects only requested columns, hydrates singular, list, and many-to-many relations, supports nested cursor pagination, and hydrates computed `count(...)` dependencies with SQL grouped counts. Count filters may be plain equality objects or Drizzle SQL predicates written as `(columns) => eq(columns.status, 'GOING')`.
 
+Nested paginated relations are resolved with one child-page query per parent row. Fate runs those child queries with a default concurrency limit of `10` so a single request cannot flood the database connection pool. Tune this with `nestedPaginationConcurrency` if your database pool or workload needs a different limit:
+
+```tsx
+export const fate = createDrizzleFate<AppContext, typeof procedure>({
+  db,
+  nestedPaginationConcurrency: 5,
+  procedure,
+  schema,
+  views: Root,
+});
+```
+
 For request-specific sorting, prefer a custom root query that validates and translates explicit sort args.
 
 For many-to-many relations, define the join table relations in your Drizzle schema. Fate discovers a join table that points at both the source table and the target table:

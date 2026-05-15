@@ -119,6 +119,7 @@ type DrizzleViewsInput = Array<DataView<AnyRecord> | DrizzleViewConfig<AnyRecord
 
 type DrizzleSourceAdapterOptions<Context> = {
   db: DrizzleDatabaseInput<Context>;
+  nestedPaginationConcurrency?: number;
   schema?: Record<string, unknown>;
   views: DrizzleViewsInput;
 };
@@ -264,6 +265,36 @@ const getConnectionSize = (fallback: number, args?: Record<string, unknown>) =>
   (typeof args?.first === 'number' ? args.first : undefined) ??
   (typeof args?.last === 'number' ? args.last : undefined) ??
   fallback;
+
+const defaultNestedPaginationConcurrency = 10;
+
+const getNestedPaginationConcurrency = (value: number | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : defaultNestedPaginationConcurrency;
+
+const mapWithConcurrency = async <Input, Output>(
+  items: Array<Input>,
+  concurrency: number,
+  fn: (item: Input, index: number) => Promise<Output>,
+): Promise<Array<Output>> => {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const results = new Array<Output>(items.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await fn(items[index]!, index);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+};
 
 const buildConnection = <TNode extends { id: string }>({
   cursor,
@@ -718,9 +749,11 @@ const resolveManyToManyConfig = ({
 
 export function createDrizzleSourceAdapter<Context>({
   db,
+  nestedPaginationConcurrency,
   schema,
   views,
 }: DrizzleSourceAdapterOptions<Context>): DrizzleSourceAdapter<Context> {
+  const nestedPaginationLimit = getNestedPaginationConcurrency(nestedPaginationConcurrency);
   const metadata = getDrizzleSchemaMetadata({ db, schema });
   const viewConfigs = createDrizzleViewConfigs({ metadata, views }).map((config) => ({
     ...config,
@@ -1298,20 +1331,20 @@ export function createDrizzleSourceAdapter<Context>({
         });
 
         if (hasPagination(relationNode.args)) {
-          const connections = await Promise.all(
-            items.map(
-              async (item) =>
-                [
+          const connections = await mapWithConcurrency(
+            items,
+            nestedPaginationLimit,
+            async (item) =>
+              [
+                item[sourceRelation.localKey],
+                await fetchManyToManyConnection(
                   item[sourceRelation.localKey],
-                  await fetchManyToManyConnection(
-                    item[sourceRelation.localKey],
-                    relationNode,
-                    sourceRelation,
-                    through,
-                    ctx,
-                  ),
-                ] as const,
-            ),
+                  relationNode,
+                  sourceRelation,
+                  through,
+                  ctx,
+                ),
+              ] as const,
           );
           const connectionByParentKey = new Map(connections);
 
@@ -1337,19 +1370,19 @@ export function createDrizzleSourceAdapter<Context>({
       }
 
       if (hasPagination(relationNode.args)) {
-        const connections = await Promise.all(
-          items.map(
-            async (item) =>
-              [
+        const connections = await mapWithConcurrency(
+          items,
+          nestedPaginationLimit,
+          async (item) =>
+            [
+              item[sourceRelation.localKey],
+              await fetchManyConnection(
                 item[sourceRelation.localKey],
-                await fetchManyConnection(
-                  item[sourceRelation.localKey],
-                  relationNode,
-                  sourceRelation,
-                  ctx,
-                ),
-              ] as const,
-          ),
+                relationNode,
+                sourceRelation,
+                ctx,
+              ),
+            ] as const,
         );
         const connectionByParentKey = new Map(connections);
 
