@@ -17,6 +17,8 @@ import { comment } from '../../drizzle/schema.ts';
 import { fate, live, procedure, router } from '../init.ts';
 import { commentDataView, postDataView } from '../views.ts';
 
+const isDevelopment = process.env.NODE_ENV === 'development' || Boolean(process.env.DEV);
+
 export const commentRouter = router({
   ...fate.procedures({
     list: false,
@@ -161,7 +163,7 @@ export const commentRouter = router({
         return [];
       }
 
-      if (query.length > 1) {
+      if (isDevelopment && query.length > 1) {
         // Artificial slowdown.
         await new Promise((resolve) => setTimeout(resolve, 500));
       }

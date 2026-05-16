@@ -36,6 +36,7 @@ const source = createDrizzleSourceAdapter<AppContext>({
   schema,
   views: Root,
 });
+const isDevelopment = process.env.NODE_ENV === 'development' || Boolean(process.env.DEV);
 
 const requireUser = (ctx: AppContext) => {
   if (!ctx.sessionUser) {
@@ -81,7 +82,7 @@ export const fateServer = createFateServer({
           };
         }
 
-        if (query.trim().length > 1) {
+        if (isDevelopment && query.trim().length > 1) {
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
 

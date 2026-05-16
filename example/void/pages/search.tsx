@@ -22,6 +22,8 @@ const CommentSearchView = view<Comment>()({
   post: CommentPostView,
 });
 
+const isDevelopment = import.meta.env.DEV;
+
 const CommentResult = ({ comment: commentRef }: { comment: ViewRef<'Comment'> }) => {
   const comment = useView(CommentSearchView, commentRef);
   const post = useView(CommentPostView, comment.post);
@@ -67,7 +69,9 @@ export default function SearchPage() {
             ref={(ref) => ref?.focus()}
             value={query}
           />
-          <div className="text-xs text-muted-foreground">500ms artificial slowdown</div>
+          {isDevelopment ? (
+            <div className="text-xs text-muted-foreground">500ms artificial slowdown</div>
+          ) : null}
         </Stack>
 
         <ErrorBoundary FallbackComponent={Error}>

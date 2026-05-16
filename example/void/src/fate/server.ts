@@ -39,6 +39,7 @@ const source = createDrizzleSourceAdapter<AppContext>({
   schema,
   views: Root,
 });
+const isDevelopment = import.meta.env.DEV;
 export const fateLive = createVoidFateLive();
 export const { live } = fateLive;
 
@@ -63,7 +64,7 @@ export const fateServer = createFateServer({
           };
         }
 
-        if (query.trim().length > 1) {
+        if (isDevelopment && query.trim().length > 1) {
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
 

@@ -11,6 +11,8 @@ const postSelection = {
   title: true,
 };
 
+const isDevelopment = process.env.NODE_ENV === 'development' || Boolean(process.env.DEV);
+
 const getCommentSelection = (select: Record<string, unknown>) => {
   return {
     ...select,
@@ -146,7 +148,7 @@ export const commentRouter = router({
         return [];
       }
 
-      if (query.length > 1) {
+      if (isDevelopment && query.length > 1) {
         // Artificial slowdown.
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
