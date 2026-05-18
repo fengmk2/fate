@@ -27,14 +27,17 @@ describe('create-fate templates', () => {
     }
   });
 
-  test('keeps the Void template Vite config light', () => {
+  test('keeps generated client modules out of dependency optimization', () => {
     const voidViteConfig = readFileSync(
       join(packageRoot, 'templates/fate/void/vite.config.ts'),
       'utf8',
     );
 
-    expect(voidViteConfig).not.toContain("'react-fate/client'");
-    expect(voidViteConfig).not.toContain("'void-fate/react'");
+    expect(voidViteConfig).toContain("'@void/react'");
+    expect(voidViteConfig).toContain("'@nkzw/fate/client'");
+    expect(voidViteConfig).toContain("'react-fate/client'");
+    expect(voidViteConfig).toContain("'void-fate/react'");
+    expect(voidViteConfig).not.toContain('include:');
     expect(voidViteConfig).not.toContain("dedupe: ['react', 'react-dom']");
   });
 

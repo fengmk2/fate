@@ -9,29 +9,25 @@ import { voidPlugin } from 'void';
 const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST;
 
 export default defineConfig({
+  optimizeDeps: {
+    exclude: ['@nkzw/fate/client', 'react-fate/client', 'void-fate/react'],
+  },
   environments: {
     void_worker: {
       optimizeDeps: {
-        include: [
-          '@nkzw/core/safeParse.js',
+        exclude: [
+          '@nkzw/fate/client',
+          '@nkzw/fate/server',
           '@nkzw/stack',
           '@radix-ui/react-slot',
           '@void/react',
           '@void/react/pages-server',
-          'better-auth',
-          'better-auth/adapters/drizzle',
-          'better-auth/plugins',
-          'class-variance-authority',
-          'clsx',
-          'drizzle-orm',
           'lucide-react',
-          'react',
           'react-error-boundary',
-          'react/jsx-dev-runtime',
-          'react/jsx-runtime',
-          'tailwind-merge',
-          'void/schema-d1',
-          'zod',
+          'react-fate',
+          'react-fate/client',
+          'void-fate/react',
+          'void-fate/server',
         ],
       },
     },

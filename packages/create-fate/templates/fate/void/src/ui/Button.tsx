@@ -1,12 +1,6 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import {
-  type ButtonHTMLAttributes,
-  type MouseEvent,
-  type ReactNode,
-  useOptimistic,
-  useTransition,
-} from 'react';
+import { type ButtonHTMLAttributes, type ReactNode, useOptimistic, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import cx from '../lib/cx.tsx';
 
@@ -39,13 +33,41 @@ const buttonVariants = cva(
 const Button = ({
   action,
   asChild = false,
-  children,
   className,
   disabled,
   onClick: initialOnClick,
+  size,
+  variant,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants> & {
+    action?: () => void;
+    asChild?: boolean;
+  }) => {
+  const Component = asChild ? Slot : 'button';
+
+  const [isPending, startTransition] = useTransition();
+
+  const onClick = initialOnClick || (action ? () => startTransition(action) : undefined);
+
+  return (
+    <Component
+      className={cx(buttonVariants({ className, size, variant }))}
+      disabled={disabled !== undefined ? disabled : isPending}
+      onClick={onClick}
+      {...props}
+    />
+  );
+};
+
+const AsyncButton = ({
+  action,
+  asChild = false,
+  children,
+  className,
+  disabled,
   pendingPlaceholder = '...',
   size,
-  type,
   variant,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> &
@@ -60,28 +82,22 @@ const Button = ({
   const [transitionIsPending, startTransition] = useTransition();
   const { pending: formIsPending } = useFormStatus();
 
-  const onClick = (event: MouseEvent<HTMLButtonElement>) => {
-    initialOnClick?.(event);
-
-    if (!action || event.defaultPrevented) {
-      return;
-    }
-
-    event.preventDefault();
-    startTransition(async () => {
-      setOptimisticIsPending(true);
-      await action();
-    });
-  };
-
   const isPending = transitionIsPending || optimisticIsPending || formIsPending;
+
+  const onClick = action
+    ? () => {
+        startTransition(async () => {
+          setOptimisticIsPending(true);
+          await action();
+        });
+      }
+    : undefined;
 
   return (
     <Component
       className={cx(buttonVariants({ className, size, variant }))}
       disabled={disabled || isPending || undefined}
-      onClick={initialOnClick || action ? onClick : undefined}
-      type={type}
+      onClick={onClick}
       {...props}
     >
       {isPending ? pendingPlaceholder : children}
@@ -89,4 +105,4 @@ const Button = ({
   );
 };
 
-export { Button, buttonVariants };
+export { AsyncButton, Button, buttonVariants };

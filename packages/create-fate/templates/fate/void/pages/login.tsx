@@ -3,7 +3,7 @@ import { useRouter, useShared } from '@void/react';
 import { ExternalLinkIcon } from 'lucide-react';
 import { useActionState, useEffect, useState } from 'react';
 import type { SharedData } from '../src/lib/shared.ts';
-import { Button } from '../src/ui/Button.tsx';
+import { AsyncButton } from '../src/ui/Button.tsx';
 import Card from '../src/ui/Card.tsx';
 import H2 from '../src/ui/H2.tsx';
 import Input from '../src/ui/Input.tsx';
@@ -71,9 +71,9 @@ export default function LoginPage() {
                   value={password}
                 />
                 <div>
-                  <Button type="submit" variant="outline">
+                  <AsyncButton type="submit" variant="outline">
                     Sign In
-                  </Button>
+                  </AsyncButton>
                 </div>
               </VStack>
             </Stack>
