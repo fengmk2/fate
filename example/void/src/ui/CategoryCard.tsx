@@ -58,7 +58,6 @@ export const CategoryView = view<Category>()({
   postCount: true,
   posts: {
     items: {
-      cursor: true,
       node: CategoryPostView,
     },
     pagination: {
@@ -87,12 +86,9 @@ export default function CategoryCard({ category: categoryRef }: { category: View
           </Badge>
         </Stack>
         <VStack gap={12}>
-          {posts.map(({ cursor, node }) => {
-            if (cursor !== node.id) {
-              throw new Error(`fate: Cursor '${cursor}' does not match node ID '${node.id}'.`);
-            }
-            return <CategoryPost key={node.id} post={node} />;
-          })}
+          {posts.map(({ node }) => (
+            <CategoryPost key={node.id} post={node} />
+          ))}
         </VStack>
         {category.posts?.pagination?.hasNext ? (
           <span className="text-sm text-muted-foreground">

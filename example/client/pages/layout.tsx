@@ -12,6 +12,8 @@ import Header from '../src/ui/Header.tsx';
 import Section from '../src/ui/Section.tsx';
 import AuthClient from '../src/user/AuthClient.tsx';
 
+const isGraphQLTransport = import.meta.env.VITE_FATE_TRANSPORT === 'graphql';
+
 const Thinking = () => (
   <Section>
     <Stack center className="animate-pulse text-gray-500 italic" verticalPadding={48}>
@@ -24,32 +26,37 @@ export default function Layout({ children }: { children: ReactNode }) {
   const { data: session, isPending } = AuthClient.useSession();
   const userId = session?.user.id;
 
-  const fate = useMemo(
-    () =>
-      createFateClient({
-        links: [
-          httpBatchLink({
-            fetch: (input, init) =>
-              fetch(input, {
-                ...init,
-                credentials: userId ? 'include' : undefined,
+  const fate = useMemo(() => {
+    const credentialFetch = userId
+      ? (input: string | URL | Request, init?: RequestInit) =>
+          fetch(input, {
+            ...init,
+            credentials: 'include',
+          })
+      : undefined;
+
+    return createFateClient(
+      (isGraphQLTransport
+        ? {
+            fetch: credentialFetch,
+            url: `${env('SERVER_URL')}/graphql`,
+          }
+        : {
+            ...(credentialFetch ? { fetch: credentialFetch } : null),
+            links: [
+              httpBatchLink({
+                fetch: (input, init) =>
+                  fetch(input, {
+                    ...init,
+                    credentials: userId ? 'include' : undefined,
+                  }),
+                url: `${env('SERVER_URL')}/trpc`,
               }),
-            url: `${env('SERVER_URL')}/trpc`,
-          }),
-        ],
-        liveUrl: `${env('SERVER_URL')}/fate`,
-        ...(userId
-          ? {
-              fetch: (input, init) =>
-                fetch(input, {
-                  ...init,
-                  credentials: 'include',
-                }),
-            }
-          : null),
-      }),
-    [userId],
-  );
+            ],
+            liveUrl: `${env('SERVER_URL')}/fate`,
+          }) as never,
+    );
+  }, [userId]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">

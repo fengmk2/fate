@@ -47,6 +47,14 @@ export const createClientSource = ({
   runtimeModuleName?: string;
   transport?: FateViteTransport;
 }) => {
+  if (transport === 'graphql') {
+    return createGraphQLClientSource({
+      clientModule,
+      moduleExports,
+      moduleName,
+    });
+  }
+
   if (transport === 'native' || transport === 'void') {
     return createNativeClientSource({
       clientModule,
@@ -333,6 +341,207 @@ ${generatedClientTypes}
 };
 
 const lowerTypeName = (type: string) => type[0]?.toLowerCase() + type.slice(1);
+
+const graphQLConfigExportName = 'fateGraphQL';
+
+const formatGraphQLObject = (value: unknown, depth = 0): string => {
+  const indent = '  '.repeat(depth);
+  const nextIndent = '  '.repeat(depth + 1);
+
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => formatGraphQLObject(entry, depth)).join(', ')}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).filter(
+    ([, entry]) => entry !== undefined,
+  );
+  if (entries.length === 0) {
+    return '{}';
+  }
+
+  return `{\n${entries
+    .map(
+      ([key, entry]) =>
+        `${nextIndent}${JSON.stringify(key)}: ${formatGraphQLObject(entry, depth + 1)},`,
+    )
+    .join('\n')}\n${indent}}`;
+};
+
+const createGraphQLClientSource = ({
+  clientModule,
+  moduleExports,
+  moduleName,
+}: {
+  clientModule: ClientModule;
+  moduleExports: ModuleExports;
+  moduleName: string;
+}) => {
+  const { Root } = moduleExports;
+  const { roots, types } = createSchema(
+    Object.values(moduleExports).filter(isDataView),
+    Root ?? {},
+  );
+  const graphQLConfig = (moduleExports[graphQLConfigExportName] ?? {}) as {
+    mutations?: Record<string, { entity: string; field: string; inputArg?: false | string }>;
+    roots?: Record<string, { field?: string }>;
+  };
+
+  const byIdEntries = types.map((entry) => ({
+    name: lowerTypeName(entry.type),
+    type: entry.type,
+  }));
+  const mutationEntries = Object.entries(graphQLConfig.mutations ?? {}).map(([name, config]) => ({
+    entity: config.entity,
+    field: config.field,
+    inputArg: config.inputArg,
+    name,
+  }));
+  const rootEntries = [
+    ...byIdEntries.map(({ name, type }) => ({
+      name,
+      type,
+      value: `'${name}': clientRoot<Array<${type}>, '${type}'>('${type}'),`,
+    })),
+    ...Object.entries(roots).map(([name, root]) => ({
+      name,
+      type: root.type,
+      value: `'${name}': clientRoot<${
+        root.kind === 'list'
+          ? `{
+  items: Array<{ cursor?: string; node: ${root.type} }>;
+  pagination: import('${clientModule}').Pagination;
+}`
+          : `${root.type} | null`
+      }, '${root.type}'>('${root.type}'),`,
+    })),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+
+  const importedTypes = Array.from(
+    new Set([
+      ...types.map((type) => type.type),
+      ...mutationEntries.map((entry) => entry.entity),
+      ...(graphQLConfig.mutations ? [graphQLConfigExportName] : []),
+    ]),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const mutationConfigLines = mutationEntries.map(
+    ({ entity, name }) =>
+      `'${name}': mutation<
+  ${entity},
+  GraphQLMutationInput<typeof ${graphQLConfigExportName}.mutations['${name}']>,
+  GraphQLMutationOutput<typeof ${graphQLConfigExportName}.mutations['${name}']>
+>('${entity}'),`,
+  );
+
+  const graphQLRoots = Object.fromEntries(
+    Object.entries(roots).map(([name, root]) => [
+      name,
+      {
+        connection: root.kind === 'list' ? 'relay' : undefined,
+        field: graphQLConfig.roots?.[name]?.field,
+        type: root.type,
+      },
+    ]),
+  );
+  const graphQLMutations = Object.fromEntries(
+    mutationEntries.map(({ entity, field, inputArg, name }) => [
+      name,
+      {
+        entity,
+        field,
+        ...(inputArg !== undefined ? { inputArg } : null),
+      },
+    ]),
+  );
+  const graphQLRuntimeConfig = {
+    mutations: graphQLMutations,
+    roots: graphQLRoots,
+  };
+
+  const typesBlock = indentBlock(
+    formatTypes(
+      types as ReadonlyArray<{
+        fields?: Record<string, any>;
+        type: string;
+      }>,
+    ),
+    6,
+  );
+  const rootBlock = indentBlock(rootEntries.map((entry) => entry.value).join('\n'), 2);
+  const mutationConfigBlock = indentBlock(mutationConfigLines.join('\n'), 2);
+  const clientDeclarationModule = `${clientModule}/client`;
+  const generatedClientTypes = `
+declare module '${clientDeclarationModule}' {
+  interface ClientMutations extends GeneratedClientMutations {}
+  interface ClientRoots extends GeneratedClientRoots {}
+
+  export function createFateClient(
+    ...args: Parameters<GeneratedCreateFateClient>
+  ): ReturnType<GeneratedCreateFateClient>;
+}
+`;
+  const mutationMapType = graphQLConfig.mutations
+    ? `GraphQLMutationMap<typeof ${graphQLConfigExportName}.mutations>`
+    : 'Record<never, never>';
+  const typeImportLine = importedTypes.length
+    ? `import type { ${importedTypes.join(', ')} } from '${moduleName}';\n`
+    : '';
+
+  return `// @generated by @nkzw/fate/vite
+${typeImportLine}import { clientRoot, createClient, createGraphQLTransport, mutation, type GraphQLMutationInput, type GraphQLMutationMap, type GraphQLMutationOutput } from '${clientModule}';
+
+type GraphQLTransportMutations = ${mutationMapType};
+
+const graphQL = ${formatGraphQLObject(graphQLRuntimeConfig)} as const;
+
+const mutations = {
+${mutationConfigBlock}
+} as const;
+
+const roots = {
+${rootBlock}
+} as const;
+
+export type GeneratedClientMutations = typeof mutations;
+export type GeneratedClientRoots = typeof roots;
+
+export const createFateClient = (options: {
+  decodeNodeId?: (type: string, id: string | number) => string | number;
+  encodeNodeId?: (type: string, id: string | number) => string | number;
+  eventSource?: Parameters<typeof createGraphQLTransport>[0]['eventSource'];
+  fetch?: typeof fetch;
+  headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
+  live?: Parameters<typeof createGraphQLTransport>[0]['live'];
+  onLiveError?: (error: unknown) => void;
+  url: string | URL;
+}) =>
+  createClient<[GeneratedClientRoots, GeneratedClientMutations]>({
+    mutations,
+    onLiveError: options.onLiveError,
+    roots,
+    transport: createGraphQLTransport<GraphQLTransportMutations>({
+      decodeNodeId: options.decodeNodeId,
+      encodeNodeId: options.encodeNodeId,
+      eventSource: options.eventSource,
+      fetch: options.fetch,
+      headers: options.headers,
+      live: options.live,
+      mutations: graphQL.mutations,
+      roots: graphQL.roots,
+      types: ${typesBlock.trimStart()},
+      url: options.url,
+    }),
+    types: ${typesBlock.trimStart()},
+  });
+
+type GeneratedCreateFateClient = typeof createFateClient;
+${generatedClientTypes}
+`;
+};
 
 const createNativeClientSource = ({
   clientModule,

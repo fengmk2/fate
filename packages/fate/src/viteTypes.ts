@@ -1,1 +1,1 @@
-export type FateViteTransport = 'native' | 'trpc' | 'void';
+export type FateViteTransport = 'graphql' | 'native' | 'trpc' | 'void';

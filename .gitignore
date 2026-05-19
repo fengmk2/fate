@@ -14,6 +14,9 @@ coverage/
 dist/
 docs/api
 example/client/dist/
+example/server-graphql/src/graphql/schemaImportMap.tsx
+example/server-graphql/src/prisma/pothos-types.ts
+example/server-graphql/src/prisma/prisma-client/
 example/server-prisma/src/prisma/prisma-client/
 packages/fate/docs/
 packages/react-fate/docs/

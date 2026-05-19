@@ -41,10 +41,18 @@ export type {
 export type { RequestMode, RequestOptions } from './client.ts';
 export type { FateMutations } from './mutation.ts';
 export type { Transport } from './transport.ts';
+export type {
+  GraphQLMutationDefinition,
+  GraphQLMutationInput,
+  GraphQLMutationMap,
+  GraphQLMutationOutput,
+  GraphQLTransportOptions,
+} from './graphqlTransport.ts';
 
 export { createClient, FateClient } from './client.ts';
 export { ConnectionTag, isViewTag } from './types.ts';
 export { createTRPCTransport } from './transport.ts';
+export { createGraphQLTransport, graphqlMutation } from './graphqlTransport.ts';
 export { createHTTPTransport } from './httpTransport.ts';
 export { liveConnectionTopic, liveEntityTopic, liveGlobalConnectionTopic } from './liveTopics.ts';
 export { getListEntries } from './list.ts';

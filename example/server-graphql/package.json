@@ -1,0 +1,68 @@
+{
+  "name": "@nkzw/fate-server-graphql",
+  "version": "0.0.1",
+  "author": "Christoph Nakazawa <christoph.pojer@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/nkzw-tech/fate.git"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "vp pack",
+    "dev": "NODE_ENV=development node_modules/.bin/nodemon -q -I --exec node --no-warnings --experimental-specifier-resolution=node --loader ts-node/esm --env-file .env src/index.tsx",
+    "dev:setup": "pnpm prisma generate && pnpm generate-graphql",
+    "generate-graphql": "node --no-warnings --experimental-specifier-resolution=node --loader ts-node/esm ./scripts/generate-graphql.tsx",
+    "prisma": "prisma"
+  },
+  "dependencies": {
+    "@graphql-tools/utils": "^11.1.0",
+    "@graphql-yoga/plugin-graphql-sse": "^3.21.0",
+    "@hono/node-server": "^2.0.1",
+    "@nkzw/core": "^1.3.1",
+    "@nkzw/define-env": "^1.1.0",
+    "@nkzw/fate": "workspace:*",
+    "@pothos/core": "^4.12.0",
+    "@pothos/plugin-complexity": "^4.1.2",
+    "@pothos/plugin-directives": "^4.3.0",
+    "@pothos/plugin-prisma": "^4.14.3",
+    "@pothos/plugin-relay": "^4.7.0",
+    "@pothos/plugin-scope-auth": "^4.1.6",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "better-auth": "^1.6.9",
+    "graphql": "^16.13.2",
+    "graphql-yoga": "^5.21.0",
+    "hono": "^4.12.17"
+  },
+  "devDependencies": {
+    "@nkzw/eslint-plugin": "^2.0.0",
+    "@nkzw/oxlint-config": "^1.2.1",
+    "@swc/core": "^1.15.33",
+    "@types/node": "^25.6.0",
+    "@typescript/native-preview": "7.0.0-dev.20260505.1",
+    "dotenv": "^17.4.2",
+    "eslint-plugin-no-only-tests": "^3.4.0",
+    "eslint-plugin-perfectionist": "^5.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "glob": "^13.0.6",
+    "nodemon": "^3.1.14",
+    "oxfmt": "^0.48.0",
+    "prisma": "^7.8.0",
+    "prisma-json-types-generator": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "nodemonConfig": {
+    "ext": "tsx",
+    "watch": [
+      "src/"
+    ]
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "packageManager": "pnpm@11.0.6"
+}

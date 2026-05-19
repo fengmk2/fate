@@ -1,4 +1,5 @@
 import { expect, test } from 'vite-plus/test';
+import { graphqlMutation } from '../../graphqlTransport.ts';
 import { dataView, list } from '../../server/dataView.ts';
 import { createSourceRegistry } from '../../server/executor.ts';
 import { createFateServer } from '../../server/http.ts';
@@ -207,6 +208,70 @@ test('generates a native HTTP client with live enabled when the server supports 
   });
 
   expect(sourceText).toContain('live: true');
+});
+
+test('generates a GraphQL client source with Relay roots and configured mutations', () => {
+  type User = { __typename: 'User'; id: string; name: string };
+  type Post = {
+    __typename: 'Post';
+    author?: User;
+    comments?: Array<Comment>;
+    id: string;
+    title: string;
+  };
+  type Comment = { __typename: 'Comment'; id: string; post?: Post };
+
+  const userDataView = dataView<User>('User')({
+    id: true,
+    name: true,
+  });
+  const commentDataView = dataView<Comment>('Comment')({
+    id: true,
+  });
+  const postDataView = dataView<Post>('Post')({
+    author: userDataView,
+    comments: list(commentDataView),
+    id: true,
+    title: true,
+  });
+  const fateGraphQL = {
+    mutations: {
+      'post.like': graphqlMutation<Post, { id: string }, Post>('Post', {
+        field: 'postLike',
+      }),
+    },
+    roots: {
+      posts: { field: 'allPosts' },
+    },
+  };
+
+  const sourceText = createClientSource({
+    moduleExports: {
+      fateGraphQL,
+      postDataView,
+      Root: { posts: list(postDataView), viewer: userDataView },
+      userDataView,
+    },
+    moduleName: '@org/server/graphql.ts',
+    transport: 'graphql',
+  });
+
+  expect(sourceText).toContain('createGraphQLTransport<GraphQLTransportMutations>');
+  expect(sourceText).toContain('import type { Comment, fateGraphQL, Post, User }');
+  expect(sourceText).toContain("'post': clientRoot<Array<Post>, 'Post'>('Post')");
+  expect(sourceText).toContain("'posts': clientRoot<{");
+  expect(sourceText).toContain("pagination: import('react-fate').Pagination;");
+  expect(sourceText).toContain('"field": "allPosts"');
+  expect(sourceText).toContain("'post.like': mutation<");
+  expect(sourceText).toContain("GraphQLMutationInput<typeof fateGraphQL.mutations['post.like']>");
+  expect(sourceText).toContain('mutations: graphQL.mutations');
+  expect(sourceText).toContain(
+    "eventSource?: Parameters<typeof createGraphQLTransport>[0]['eventSource'];",
+  );
+  expect(sourceText).toContain("live?: Parameters<typeof createGraphQLTransport>[0]['live'];");
+  expect(sourceText).not.toContain('ConstructorParameters<typeof createGraphQLTransport>');
+  expect(sourceText).toContain(`}),
+    types: [`);
 });
 
 test('generates a Void client source with endpoint defaults and server fetch', () => {

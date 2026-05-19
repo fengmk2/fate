@@ -12,6 +12,7 @@ Choose between these templates:
 
 - `void`: Void pages router with Drizzle.
 - `drizzle`: tRPC with Drizzle.
+- `graphql`: GraphQL with Prisma.
 - `http`: Native HTTP with Drizzle.
 - `prisma`: tRPC with Prisma.
 
