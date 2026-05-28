@@ -2,20 +2,35 @@ packages:
   - example/*
   - packages/*
 
+blockExoticSubdeps: false
+minimumReleaseAge: 60
+minimumReleaseAgeExclude:
+  - vite-plus
+  - '@voidzero-dev/*'
+  - '@oxc-project/*'
+  - '@oxlint/*'
+  - oxlint
+  - oxfmt
+  - oxlint-tsgolint
+  - vitest
+  - '@vitest/*'
+
 allowBuilds:
   '@prisma/engines': true
   '@swc/core': true
   better-sqlite3: true
+  edgedriver: false
   esbuild: true
+  geckodriver: false
   prisma: true
   sharp: true
   unrs-resolver: true
   workerd: true
 
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.1.21
-  vite-plus: 0.1.21
-  vitest: npm:@voidzero-dev/vite-plus-test@0.1.21
+  vite: 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-core@1588'
+  vite-plus: 'https://pkg.pr.new/voidzero-dev/vite-plus@1588'
+  vitest: ^4.1.5
 
 onlyBuiltDependencies:
   - '@prisma/client'
@@ -32,7 +47,8 @@ onlyBuiltDependencies:
 
 overrides:
   vite: 'catalog:'
-  vitest: 'catalog:'
+  '@voidzero-dev/vite-plus-core': 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-core@5577b0154f33d1480a3c96347e94fa5d2094de2e'
+  '@voidzero-dev/vite-plus-prompts': 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-prompts@5577b0154f33d1480a3c96347e94fa5d2094de2e'
 
 peerDependencyRules:
   allowAny:
