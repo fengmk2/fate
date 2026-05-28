@@ -19,7 +19,9 @@ allowBuilds:
   '@prisma/engines': true
   '@swc/core': true
   better-sqlite3: true
+  edgedriver: false
   esbuild: true
+  geckodriver: false
   prisma: true
   sharp: true
   unrs-resolver: true
