@@ -13,9 +13,9 @@ allowBuilds:
   workerd: true
 
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.1.21
-  vite-plus: 0.1.21
-  vitest: npm:@voidzero-dev/vite-plus-test@0.1.21
+  vite: 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-core@1703'
+  vite-plus: 'https://pkg.pr.new/voidzero-dev/vite-plus@1703'
+  vitest: 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-test@1703'
 
 onlyBuiltDependencies:
   - '@prisma/client'
@@ -33,6 +33,9 @@ onlyBuiltDependencies:
 overrides:
   vite: 'catalog:'
   vitest: 'catalog:'
+  '@voidzero-dev/vite-plus-core': 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-core@d0b407c85b560c2470395176c9f1c838b5ca8af8'
+  '@voidzero-dev/vite-plus-test': 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-test@d0b407c85b560c2470395176c9f1c838b5ca8af8'
+  '@voidzero-dev/vite-plus-prompts': 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-prompts@d0b407c85b560c2470395176c9f1c838b5ca8af8'
 
 peerDependencyRules:
   allowAny:
@@ -41,3 +44,16 @@ peerDependencyRules:
   allowedVersions:
     vite: '*'
     vitest: '*'
+
+blockExoticSubdeps: false
+minimumReleaseAge: 60
+minimumReleaseAgeExclude:
+  - vite-plus
+  - '@voidzero-dev/vite-plus-core'
+  - '@voidzero-dev/vite-plus-test'
+  - '@voidzero-dev/vite-plus-prompts'
+  - '@oxc-project/*'
+  - '@oxlint/*'
+  - oxlint
+  - oxfmt
+  - oxlint-tsgolint
