@@ -1,7 +1,6 @@
-import type { Deferred, DeferredSnapshot, Pagination } from '@nkzw/fate';
+import { isDeferred, type Deferred, type DeferredSnapshot, type Pagination } from '@nkzw/fate';
 import { use, useEffect, useEffectEvent } from 'react';
 import { useFateClient } from './context.tsx';
-import { isDeferredValue } from './deferred.ts';
 import {
   useListViewInfo,
   type ConnectionItems,
@@ -25,9 +24,13 @@ export function useLiveListView<
 ): [ConnectionItems<ResolvedConnection<C>>, LoadMoreFn | null, LoadMoreFn | null] {
   const client = useFateClient();
   const resolvedConnection = (
-    isDeferredValue(connection)
-      ? (use(client.readDeferred(connection)) as DeferredSnapshot<ConnectionValue>).data
-      : connection
+    isDeferred(connection)
+      ? (
+          use(
+            client.readDeferred(connection as Deferred<ConnectionValue>),
+          ) as DeferredSnapshot<ConnectionValue>
+        ).data
+      : (connection as ConnectionValue | null | undefined)
   ) as ConnectionValue | null | undefined;
   const { metadata, nodeView } = useListViewInfo(selection, resolvedConnection);
 

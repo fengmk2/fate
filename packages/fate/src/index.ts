@@ -55,7 +55,7 @@ export type {
 
 export { createClient, FateClient } from './client.ts';
 export { ConnectionTag, DeferTag, DeferredTag, isViewTag } from './types.ts';
-export { defer, getDeferredMetadata } from './defer.ts';
+export { defer, getDeferredMetadata, isDeferred } from './defer.ts';
 export { createTRPCTransport } from './transport.ts';
 export { createGraphQLTransport, graphqlMutation } from './graphqlTransport.ts';
 export { createHTTPTransport } from './httpTransport.ts';

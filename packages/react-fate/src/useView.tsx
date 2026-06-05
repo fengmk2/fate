@@ -2,6 +2,7 @@ import {
   Deferred,
   EntityId,
   FateThenable,
+  isDeferred,
   View,
   ViewData,
   ViewEntity,
@@ -13,7 +14,7 @@ import {
 } from '@nkzw/fate';
 import { use, useCallback, useDeferredValue, useRef, useSyncExternalStore } from 'react';
 import { useFateClient } from './context.tsx';
-import { fulfilledThenable, isDeferredValue, isFulfilledThenable } from './deferred.ts';
+import { fulfilledThenable, isFulfilledThenable } from './thenable.ts';
 
 type ViewEntityWithTypename<V extends View<any, any>> = ViewEntity<V> & {
   __typename: ViewEntityName<V>;
@@ -53,7 +54,7 @@ export function useView<V extends View<any, any>>(
   ref: Deferred<ViewRef<ViewEntityName<V>>> | ViewRef<ViewEntityName<V>> | null,
 ): ViewData<ViewEntityWithTypename<V>, ViewSelection<V>> | null {
   const client = useFateClient();
-  const isDeferredRef = isDeferredValue(ref);
+  const isDeferredRef = isDeferred(ref);
   const snapshotRef = useRef<ViewSnapshot<ViewEntity<V>, V[ViewTag]['select']> | null>(null);
   const mergedSnapshotRef = useRef<{
     cacheKey: unknown;
@@ -131,10 +132,11 @@ export function useView<V extends View<any, any>>(
 
     if (!isDeferredRef) {
       pendingRef.current = null;
-      return readViewSnapshot(ref);
+      return readViewSnapshot(ref as ViewRef<ViewEntityName<V>>);
     }
 
-    const deferredSnapshot = client.readDeferred(ref);
+    const deferred = ref as Deferred<ViewRef<ViewEntityName<V>>>;
+    const deferredSnapshot = client.readDeferred(deferred);
     if (isFulfilledThenable(deferredSnapshot)) {
       const resolvedRef = deferredSnapshot.value.data;
       pendingRef.current = null;
@@ -149,7 +151,7 @@ export function useView<V extends View<any, any>>(
       return readViewSnapshot(
         client.ref(resolvedRef.__typename, resolvedRef.id, view),
         deferredSnapshot.value.coverage,
-        ref,
+        deferred,
       );
     }
 
@@ -173,7 +175,7 @@ export function useView<V extends View<any, any>>(
         readViewSnapshot(
           client.ref(resolvedRef.__typename, resolvedRef.id, view),
           deferredValue.coverage,
-          ref,
+          deferred,
         ),
       ).then((value) => {
         snapshotRef.current = value;
@@ -182,7 +184,7 @@ export function useView<V extends View<any, any>>(
     });
 
     pendingRef.current = {
-      deferred: ref,
+      deferred,
       snapshot: deferredSnapshot,
       viewSnapshot,
     };

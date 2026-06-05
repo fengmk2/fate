@@ -1,6 +1,7 @@
 import {
   Deferred,
   DeferredSnapshot,
+  isDeferred,
   View,
   ViewData,
   ViewEntity,
@@ -10,7 +11,6 @@ import {
 } from '@nkzw/fate';
 import { use, useEffect, useEffectEvent } from 'react';
 import { useFateClient } from './context.tsx';
-import { isDeferredValue } from './deferred.ts';
 import { useView } from './useView.tsx';
 
 type ViewEntityWithTypename<V extends View<any, any>> = ViewEntity<V> & {
@@ -37,9 +37,13 @@ export function useLiveView<V extends View<any, any>>(
   ref: Deferred<ViewRef<ViewEntityName<V>>> | ViewRef<ViewEntityName<V>> | null,
 ): ViewData<ViewEntityWithTypename<V>, ViewSelection<V>> | null {
   const client = useFateClient();
-  const resolvedRef = isDeferredValue(ref)
-    ? (use(client.readDeferred(ref)) as DeferredSnapshot<ViewRef<ViewEntityName<V>> | null>).data
-    : ref;
+  const resolvedRef = isDeferred(ref)
+    ? (
+        use(
+          client.readDeferred(ref as Deferred<ViewRef<ViewEntityName<V>>>),
+        ) as DeferredSnapshot<ViewRef<ViewEntityName<V>> | null>
+      ).data
+    : (ref as ViewRef<ViewEntityName<V>> | null);
   const liveRef = resolvedRef ? client.ref(resolvedRef.__typename, resolvedRef.id, view) : null;
   const liveId = liveRef?.id;
   const liveType = liveRef?.__typename;
