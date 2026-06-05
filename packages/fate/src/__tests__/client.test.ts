@@ -1,5 +1,6 @@
 import { expect, expectTypeOf, test, vi } from 'vite-plus/test';
 import { createClient } from '../client.ts';
+import { defer } from '../defer.ts';
 import { mutation } from '../mutation.ts';
 import { createNodeRef, getNodeRefId, isNodeRef } from '../node-ref.ts';
 import { FateRequestError } from '../protocol.ts';
@@ -56,6 +57,12 @@ const getNodeRefIds = (value: unknown) =>
   Array.isArray(value) ? value.map((item) => (isNodeRef(item) ? getNodeRefId(item) : item)) : [];
 
 const createNodeRefs = (ids: Array<string>) => ids.map((id) => createNodeRef(id));
+
+const createCommentConnectionItems = (count: number) =>
+  Array.from({ length: count }, (_, index) => ({
+    cursor: `cursor-${index + 1}`,
+    node: { __typename: 'Comment', id: `comment-${index + 1}` },
+  }));
 
 test('keeps refs stable by entity and view tags', () => {
   const client = createClient({
@@ -3314,6 +3321,437 @@ test(`'readView' fetches missing fields using the selection`, async () => {
     [postEntityId, new Set(['author', 'content', 'id'])],
     [toEntityId('User', 'user-1'), new Set(['id', 'name'])],
   ]);
+});
+
+test(`'readDeferred' fetches arg-scoped connection lists independently`, async () => {
+  type Comment = { __typename: 'Comment'; content: string; id: string };
+  type Post = {
+    __typename: 'Post';
+    comments: Array<Comment>;
+    id: string;
+  };
+
+  const fetchById = vi.fn(async () => [
+    {
+      __typename: 'Post',
+      comments: [{ __typename: 'Comment', content: 'Veg', id: 'comment-veg' }],
+      id: 'post-1',
+    },
+  ]);
+
+  const client = createClient({
+    roots: {},
+    transport: { fetchById },
+    types: [
+      { fields: { comments: { listOf: 'Comment' } }, type: 'Post' },
+      { fields: { content: 'scalar' }, type: 'Comment' },
+    ],
+  });
+
+  const CommentView = view<Comment>()({ content: true, id: true });
+  const FruitPostView = view<Post>()({
+    comments: {
+      args: { category: 'fruit', first: 1 },
+      items: { node: CommentView },
+    },
+    id: true,
+  });
+  const VegPostView = view<Post>()({
+    comments: defer({
+      args: { category: 'veg', first: 1 },
+      items: { node: CommentView },
+    }),
+    id: true,
+  });
+
+  const fruitPlan = getSelectionPlan(FruitPostView, null);
+  client.write(
+    'Post',
+    {
+      __typename: 'Post',
+      comments: [{ __typename: 'Comment', content: 'Fruit', id: 'comment-fruit' }],
+      id: 'post-1',
+    },
+    fruitPlan.paths,
+    undefined,
+    fruitPlan,
+  );
+
+  const post = unwrap(
+    client.readView<Post, SelectionOf<typeof VegPostView>, typeof VegPostView>(
+      VegPostView,
+      client.ref<Post>('Post', 'post-1', VegPostView),
+    ),
+  );
+
+  const comments = await client.readDeferred(post.comments);
+
+  expect(fetchById).toHaveBeenCalledTimes(1);
+  expect(fetchById).toHaveBeenCalledWith(
+    'Post',
+    ['post-1'],
+    new Set(['comments.content', 'comments.id']),
+    { comments: { category: 'veg', first: 1 } },
+  );
+  expect(comments.data.items.map(({ node }) => node.id)).toEqual(['comment-veg']);
+});
+
+test(`'readDeferred' preserves numeric owner ids for fetches`, async () => {
+  type Comment = { __typename: 'Comment'; id: string };
+  type Post = {
+    __typename: 'Post';
+    comments: Array<Comment>;
+    id: number;
+  };
+
+  const fetchById = vi.fn(async () => []);
+
+  const client = createClient({
+    roots: {},
+    transport: { fetchById },
+    types: [{ fields: { comments: { listOf: 'Comment' } }, type: 'Post' }, { type: 'Comment' }],
+  });
+
+  const CommentView = view<Comment>()({ id: true });
+  const PostView = view<Post>()({
+    comments: defer({ items: { node: CommentView } }),
+    id: true,
+  });
+
+  client.write('Post', { __typename: 'Post', id: 1 }, new Set(['id']));
+  const post = unwrap(
+    client.readView<Post, SelectionOf<typeof PostView>, typeof PostView>(
+      PostView,
+      client.ref<Post>('Post', 1, PostView),
+    ),
+  );
+
+  await client.readDeferred(post.comments);
+
+  expect(fetchById).toHaveBeenCalledWith('Post', [1], new Set(['comments.id']), undefined);
+});
+
+test(`'readDeferred' follows resolved optimistic entity ids`, async () => {
+  type Comment = { __typename: 'Comment'; id: string };
+  type Post = {
+    __typename: 'Post';
+    comments: Array<Comment>;
+    id: string;
+  };
+
+  const fetchById = vi.fn(async () => [
+    {
+      __typename: 'Post',
+      comments: [{ __typename: 'Comment', id: 'comment-1' }],
+      id: 'post-1',
+    },
+  ]);
+
+  const client = createClient({
+    roots: {},
+    transport: { fetchById },
+    types: [{ fields: { comments: { listOf: 'Comment' } }, type: 'Post' }, { type: 'Comment' }],
+  });
+
+  const CommentView = view<Comment>()({ id: true });
+  const PostView = view<Post>()({
+    comments: defer({ items: { node: CommentView } }),
+    id: true,
+  });
+
+  client.write('Post', { __typename: 'Post', id: 'optimistic:post-1' }, new Set(['id']));
+  client.write('Post', { __typename: 'Post', id: 'post-1' }, new Set(['id']));
+
+  const post = unwrap(
+    client.readView<Post, SelectionOf<typeof PostView>, typeof PostView>(
+      PostView,
+      client.ref<Post>('Post', 'optimistic:post-1', PostView),
+    ),
+  );
+
+  client.resolveOptimisticEntity(
+    toEntityId('Post', 'optimistic:post-1'),
+    toEntityId('Post', 'post-1'),
+  );
+
+  const comments = await client.readDeferred(post.comments);
+
+  expect(fetchById).toHaveBeenCalledWith('Post', ['post-1'], new Set(['comments.id']), undefined);
+  expect(comments.data.items.map(({ node }) => node.id)).toEqual(['comment-1']);
+});
+
+test(`'readDeferred' retries after a rejected fetch`, async () => {
+  type Comment = { __typename: 'Comment'; id: string };
+  type Post = {
+    __typename: 'Post';
+    comments: Array<Comment>;
+    id: string;
+  };
+
+  const fetchById = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('Network failed'))
+    .mockResolvedValueOnce([
+      {
+        __typename: 'Post',
+        comments: [{ __typename: 'Comment', id: 'comment-1' }],
+        id: 'post-1',
+      },
+    ]);
+
+  const client = createClient({
+    roots: {},
+    transport: { fetchById },
+    types: [{ fields: { comments: { listOf: 'Comment' } }, type: 'Post' }, { type: 'Comment' }],
+  });
+
+  const CommentView = view<Comment>()({ id: true });
+  const PostView = view<Post>()({
+    comments: defer({ items: { node: CommentView } }),
+    id: true,
+  });
+
+  client.write('Post', { __typename: 'Post', id: 'post-1' }, new Set(['id']));
+  const post = unwrap(
+    client.readView<Post, SelectionOf<typeof PostView>, typeof PostView>(
+      PostView,
+      client.ref<Post>('Post', 'post-1', PostView),
+    ),
+  );
+
+  await expect(client.readDeferred(post.comments)).rejects.toThrow('Network failed');
+
+  const comments = await client.readDeferred(post.comments);
+
+  expect(fetchById).toHaveBeenCalledTimes(2);
+  expect(comments.data.items.map(({ node }) => node.id)).toEqual(['comment-1']);
+});
+
+test(`'readDeferred' does not share pending snapshots across deferred shapes`, async () => {
+  type User = { __typename: 'User'; id: string; name: string };
+  type Post = {
+    __typename: 'Post';
+    author: User;
+    id: string;
+  };
+
+  const resolveFetches: Array<(value: Array<AnyRecord>) => void> = [];
+  const fetchById = vi.fn(
+    () =>
+      new Promise<Array<AnyRecord>>((resolve) => {
+        resolveFetches.push(resolve);
+      }),
+  );
+
+  const client = createClient({
+    roots: {},
+    transport: { fetchById },
+    types: [
+      { fields: { author: { type: 'User' } }, type: 'Post' },
+      { fields: { name: 'scalar' }, type: 'User' },
+    ],
+  });
+
+  const UserView = view<User>()({ name: true });
+  const RefPostView = view<Post>()({
+    author: defer(UserView),
+    id: true,
+  });
+  const InlinePostView = view<Post>()({
+    author: defer({ name: true }),
+    id: true,
+  });
+
+  client.write('Post', { __typename: 'Post', id: 'post-1' }, new Set(['id']));
+
+  const refPost = unwrap(
+    client.readView<Post, SelectionOf<typeof RefPostView>, typeof RefPostView>(
+      RefPostView,
+      client.ref<Post>('Post', 'post-1', RefPostView),
+    ),
+  );
+  const inlinePost = unwrap(
+    client.readView<Post, SelectionOf<typeof InlinePostView>, typeof InlinePostView>(
+      InlinePostView,
+      client.ref<Post>('Post', 'post-1', InlinePostView),
+    ),
+  );
+
+  const refSnapshot = client.readDeferred(refPost.author);
+  const inlineSnapshot = client.readDeferred(inlinePost.author);
+
+  expect(fetchById).toHaveBeenCalledTimes(2);
+
+  const response = [
+    {
+      __typename: 'Post',
+      author: { __typename: 'User', id: 'user-1', name: 'Ada' },
+      id: 'post-1',
+    },
+  ];
+  for (const resolveFetch of resolveFetches) {
+    resolveFetch(response);
+  }
+
+  const [refResult, inlineResult] = await Promise.all([refSnapshot, inlineSnapshot]);
+
+  expect(refResult.data).toEqual({
+    __typename: 'User',
+    id: 'user-1',
+  });
+  expect(refResult.data[ViewsTag]).toEqual(tagsFor(UserView));
+  expect(inlineResult.data).toEqual({
+    __typename: 'User',
+    id: 'user-1',
+    name: 'Ada',
+  });
+  expect((inlineResult.data as AnyRecord)[ViewsTag as any]).toBeUndefined();
+});
+
+test(`'readDeferred' fetches no-arg connection lists independently from scoped lists`, async () => {
+  type Comment = { __typename: 'Comment'; content: string; id: string };
+  type Post = {
+    __typename: 'Post';
+    comments: Array<Comment>;
+    id: string;
+  };
+
+  const fetchById = vi.fn(async () => [
+    {
+      __typename: 'Post',
+      comments: [{ __typename: 'Comment', content: 'Default', id: 'comment-default' }],
+      id: 'post-1',
+    },
+  ]);
+
+  const client = createClient({
+    roots: {},
+    transport: { fetchById },
+    types: [
+      { fields: { comments: { listOf: 'Comment' } }, type: 'Post' },
+      { fields: { content: 'scalar' }, type: 'Comment' },
+    ],
+  });
+
+  const CommentView = view<Comment>()({ content: true, id: true });
+  const ScopedPostView = view<Post>()({
+    comments: {
+      args: { category: 'fruit', first: 1 },
+      items: { node: CommentView },
+    },
+    id: true,
+  });
+  const DefaultPostView = view<Post>()({
+    comments: defer({ items: { node: CommentView } }),
+    id: true,
+  });
+
+  const scopedPlan = getSelectionPlan(ScopedPostView, null);
+  client.write(
+    'Post',
+    {
+      __typename: 'Post',
+      comments: [{ __typename: 'Comment', content: 'Fruit', id: 'comment-fruit' }],
+      id: 'post-1',
+    },
+    scopedPlan.paths,
+    undefined,
+    scopedPlan,
+  );
+
+  const post = unwrap(
+    client.readView<Post, SelectionOf<typeof DefaultPostView>, typeof DefaultPostView>(
+      DefaultPostView,
+      client.ref<Post>('Post', 'post-1', DefaultPostView),
+    ),
+  );
+
+  const comments = await client.readDeferred(post.comments);
+
+  expect(fetchById).toHaveBeenCalledTimes(1);
+  expect(fetchById).toHaveBeenCalledWith(
+    'Post',
+    ['post-1'],
+    new Set(['comments.content', 'comments.id']),
+    undefined,
+  );
+  expect(comments.data.items.map(({ node }) => node.id)).toEqual(['comment-default']);
+});
+
+test(`'readDeferred' fetches deferred connection pages without enough cached coverage`, async () => {
+  type Comment = { __typename: 'Comment'; id: string };
+  type Post = {
+    __typename: 'Post';
+    comments: Array<Comment>;
+    id: string;
+  };
+
+  const fetchById = vi.fn(async () => [
+    {
+      __typename: 'Post',
+      comments: {
+        items: createCommentConnectionItems(10),
+        pagination: { hasNext: false, hasPrevious: false, nextCursor: undefined },
+      },
+      id: 'post-1',
+    },
+  ]);
+
+  const client = createClient({
+    roots: {},
+    transport: { fetchById },
+    types: [{ fields: { comments: { listOf: 'Comment' } }, type: 'Post' }, { type: 'Comment' }],
+  });
+
+  const CommentView = view<Comment>()({ id: true });
+  const ShortPostView = view<Post>()({
+    comments: {
+      args: { first: 3 },
+      items: { cursor: true, node: CommentView },
+      pagination: { hasNext: true },
+    },
+    id: true,
+  });
+  const LongPostView = view<Post>()({
+    comments: defer({
+      args: { first: 10 },
+      items: { cursor: true, node: CommentView },
+      pagination: { hasNext: true },
+    }),
+    id: true,
+  });
+
+  const shortPlan = getSelectionPlan(ShortPostView, null);
+  client.write(
+    'Post',
+    {
+      __typename: 'Post',
+      comments: {
+        items: createCommentConnectionItems(3),
+        pagination: { hasNext: true, hasPrevious: false, nextCursor: 'cursor-3' },
+      },
+      id: 'post-1',
+    },
+    shortPlan.paths,
+    undefined,
+    shortPlan,
+  );
+
+  const post = unwrap(
+    client.readView<Post, SelectionOf<typeof LongPostView>, typeof LongPostView>(
+      LongPostView,
+      client.ref<Post>('Post', 'post-1', LongPostView),
+    ),
+  );
+
+  const comments = await client.readDeferred(post.comments);
+
+  expect(fetchById).toHaveBeenCalledTimes(1);
+  expect(fetchById).toHaveBeenCalledWith('Post', ['post-1'], new Set(['comments.id']), {
+    comments: { first: 10 },
+  });
+  expect(comments.data.items).toHaveLength(10);
+  expect(comments.data.items.at(-1)?.node.id).toBe('comment-10');
 });
 
 test(`'request' groups ids by selection before fetching`, async () => {

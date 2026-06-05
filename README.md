@@ -206,6 +206,69 @@ export function App() {
 
 _Learn more about `useRequest` in the [Requests Guide](/docs/guide/requests.md)._
 
+### Deferred Fields
+
+Use `defer` when a field should not block the parent view. The parent view receives a deferred handle immediately after the eager fields are available, and the component that reads that handle with `useView`, `useListView`, or `useLiveListView` decides which `Suspense` boundary handles the loading state.
+
+```tsx
+import { Suspense } from 'react';
+import { defer, useListView, useView, view, Deferred, ViewRef } from 'react-fate';
+
+const CommentView = view<Comment>()({
+  content: true,
+  id: true,
+});
+
+const CommentConnectionView = {
+  args: { first: 3 },
+  items: { node: CommentView },
+};
+
+const PostView = view<Post>()({
+  comments: defer(CommentConnectionView),
+  content: true,
+  id: true,
+  title: true,
+});
+
+function PostCard({ post: postRef }: { post: ViewRef<'Post'> }) {
+  const post = useView(PostView, postRef);
+
+  return (
+    <article>
+      <h2>{post.title}</h2>
+      <p>{post.content}</p>
+      <Suspense fallback={<CommentsSkeleton />}>
+        <PostComments comments={post.comments} />
+      </Suspense>
+    </article>
+  );
+}
+
+function PostComments({
+  comments,
+}: {
+  comments: Deferred<{ items: ReadonlyArray<{ node: ViewRef<'Comment'> }> }>;
+}) {
+  const [items, loadNext] = useListView(CommentConnectionView, comments);
+
+  return (
+    <section>
+      {items.map(({ node }) => (
+        <CommentCard comment={node} key={node.id} />
+      ))}
+      {loadNext ? <button onClick={loadNext}>Load more</button> : null}
+    </section>
+  );
+}
+```
+
+Deferred fields are not optional data. They are explicit handles that existing view APIs can read. If the deferred selection is missing from the normalized cache, fate fetches only that missing selection and suspends the component that tried to resolve it.
+
+This keeps parent components simple: eager fields like `title` and `content` are available when `useView(PostView, postRef)` returns, while slower or secondary fields such as `comments` can load under their own boundary.
+
+GraphQL transports use the same client semantics today. The deferred field is omitted from the eager request and fetched when the deferred handle is resolved. GraphQL `@defer` is the natural transport representation for this feature, but consuming incremental multipart patches requires additional transport support before fate can safely normalize streamed patches from a single GraphQL response.
+
 ### Composing Views
 
 In the above example we are defining a single view for a `Post`. One of fate's core strengths is view composition. Let's say we want to show the author's name along with the post. A simple way to do this is by adding an `author` field to the `PostView` with a concrete selection:
@@ -1411,6 +1474,8 @@ const fate = createFateClient({
 ```
 
 GraphQL operations issued in the same microtask are batched into a single GraphQL query or mutation document with aliased fields.
+
+Deferred view fields work with the GraphQL transport through the same normalized cache flow as native HTTP: the eager query omits `defer(...)` fields, and `useView`, `useListView`, or `useLiveListView` fetches the missing selection through `nodes(ids:)` when the deferred handle is read. GraphQL `@defer` is the natural wire format for this feature, but fate's GraphQL transport currently expects one JSON result per operation and does not consume incremental multipart patches yet.
 
 ### Object IDs
 

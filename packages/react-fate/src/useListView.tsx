@@ -1,7 +1,8 @@
-import type { Pagination } from '@nkzw/fate';
+import type { Deferred, DeferredSnapshot, Pagination } from '@nkzw/fate';
 import { getListEntries } from '@nkzw/fate/list';
-import { useCallback, useDeferredValue, useMemo, useSyncExternalStore } from 'react';
+import { use, useCallback, useDeferredValue, useMemo, useSyncExternalStore } from 'react';
 import { useFateClient } from './context.tsx';
+import { isDeferredValue } from './deferred.ts';
 import {
   useListViewInfo,
   type ConnectionItems,
@@ -9,18 +10,26 @@ import {
   type LoadMoreFn,
 } from './listView.ts';
 
+type ConnectionValue = { items?: ReadonlyArray<any>; pagination?: Pagination };
+type ResolvedConnection<C> = C extends Deferred<infer Value> ? Value : NonNullable<C>;
+
 /**
  * Subscribes to a connection field, returning the current items and pagination
  * helpers to load the next or previous page.
  */
 export function useListView<
-  C extends { items?: ReadonlyArray<any>; pagination?: Pagination } | null | undefined,
+  C extends ConnectionValue | Deferred<ConnectionValue> | null | undefined,
 >(
   selection: ConnectionSelection,
   connection: C,
-): [ConnectionItems<NonNullable<C>>, LoadMoreFn | null, LoadMoreFn | null] {
+): [ConnectionItems<ResolvedConnection<C>>, LoadMoreFn | null, LoadMoreFn | null] {
   const client = useFateClient();
-  const { metadata, nodeView } = useListViewInfo(selection, connection);
+  const resolvedConnection = (
+    isDeferredValue(connection)
+      ? (use(client.readDeferred(connection)) as DeferredSnapshot<ConnectionValue>).data
+      : connection
+  ) as ConnectionValue | null | undefined;
+  const { metadata, nodeView } = useListViewInfo(selection, resolvedConnection);
 
   const subscribe = useCallback(
     (onStoreChange: () => void) =>
@@ -34,7 +43,7 @@ export function useListView<
   );
 
   const listState = useDeferredValue(useSyncExternalStore(subscribe, getSnapshot, getSnapshot));
-  const pagination = listState?.pagination ?? connection?.pagination;
+  const pagination = listState?.pagination ?? resolvedConnection?.pagination;
   const hasNext = Boolean(pagination?.hasNext);
   const hasPrevious = Boolean(pagination?.hasPrevious);
   const nextCursor = pagination?.nextCursor;
@@ -48,8 +57,8 @@ export function useListView<
       }));
     }
 
-    return connection?.items;
-  }, [client, connection?.items, listState, metadata, nodeView]);
+    return resolvedConnection?.items;
+  }, [client, resolvedConnection?.items, listState, metadata, nodeView]);
 
   const loadNext = useMemo(() => {
     if (!metadata || !hasNext || !nextCursor) {
@@ -102,5 +111,5 @@ export function useListView<
     };
   }, [client, hasPrevious, nodeView, metadata, previousCursor]);
 
-  return [items as ConnectionItems<NonNullable<C>>, loadNext, loadPrevious];
+  return [items as ConnectionItems<ResolvedConnection<C>>, loadNext, loadPrevious];
 }

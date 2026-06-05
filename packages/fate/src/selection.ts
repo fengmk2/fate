@@ -1,4 +1,5 @@
 import { cloneArgs, hashArgs, paginationArgKeys } from './args.ts';
+import { isDeferredSelection } from './defer.ts';
 import { isRecord } from './record.ts';
 import {
   AnyRecord,
@@ -96,6 +97,10 @@ export const getSelectionPlan = <T extends Entity, S extends Selection<T>, V ext
         continue;
       }
 
+      if (isDeferredSelection(value)) {
+        continue;
+      }
+
       if (isViewTag(key)) {
         if (!ref || (ref[ViewsTag] && ref[ViewsTag].has(key))) {
           walk((value as { select: AnyRecord }).select, prefix);
@@ -160,4 +165,9 @@ export const getSelectionPlan = <T extends Entity, S extends Selection<T>, V ext
   }
 
   return { args, live, paths };
+};
+
+export const getDeferredSelectionPlan = (field: string, selection: unknown): SelectionPlan => {
+  const syntheticView = { [field]: selection } as View<any, any>;
+  return getSelectionPlan(syntheticView, null);
 };

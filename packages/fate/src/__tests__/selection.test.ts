@@ -1,5 +1,6 @@
 import { expect, test } from 'vite-plus/test';
-import { getSelectionPlan } from '../selection.ts';
+import { defer } from '../defer.ts';
+import { getDeferredSelectionPlan, getSelectionPlan } from '../selection.ts';
 import { ViewsTag } from '../types.ts';
 import { view } from '../view.ts';
 
@@ -182,6 +183,43 @@ test('omits connection cursor selections from paths', () => {
 
   expect(selection.paths).not.toContain('comments.cursor');
   expect(selection.paths).toContain('comments.id');
+});
+
+test('omits deferred fields from the eager selection plan', () => {
+  type Comment = { __typename: 'Comment'; content: string; id: string };
+  type Post = {
+    __typename: 'Post';
+    comments: Array<Comment>;
+    id: string;
+    title: string;
+  };
+
+  const CommentView = view<Comment>()({
+    content: true,
+    id: true,
+  });
+
+  const comments = {
+    args: { first: 3 },
+    items: { node: CommentView },
+  } as const;
+
+  const PostView = view<Post>()({
+    comments: defer(comments),
+    id: true,
+    title: true,
+  });
+
+  const eager = getSelectionPlan(PostView, null);
+  expect(eager.paths).toEqual(new Set(['id', 'title']));
+
+  const deferred = getDeferredSelectionPlan('comments', comments);
+  expect(deferred.paths).toEqual(new Set(['comments.content', 'comments.id']));
+  expect(deferred.args.get('comments')).toEqual({
+    hash: 'object:{}',
+    ignoreKeys: new Set(['after', 'before', 'cursor', 'first', 'last']),
+    value: { first: 3 },
+  });
 });
 
 test('collects selections for root connections', () => {

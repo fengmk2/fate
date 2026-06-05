@@ -19,6 +19,12 @@ export const NodeRefTag = Symbol('__fate__node-ref');
 /** Symbol attached to connection results so pagination helpers can find their metadata. */
 export const ConnectionTag = Symbol('__fate__connection');
 
+/** Symbol used to mark a selection as deferred. */
+export const DeferTag = Symbol('__fate__defer');
+
+/** Symbol attached to deferred values returned from masked views. */
+export const DeferredTag = Symbol('__fate__deferred');
+
 export declare const __FateEntityBrand: unique symbol;
 export declare const __FateSelectionBrand: unique symbol;
 export declare const __FateMutationEntityBrand: unique symbol;
@@ -26,6 +32,7 @@ export declare const __FateMutationInputBrand: unique symbol;
 export declare const __FateMutationResultBrand: unique symbol;
 export declare const __FateRootResultBrand: unique symbol;
 export declare const __FateRootTypeBrand: unique symbol;
+export declare const __FateDeferredBrand: unique symbol;
 
 type __ViewEntityAnchor<T extends Entity> = {
   readonly [__FateEntityBrand]?: T;
@@ -137,6 +144,25 @@ export type ConnectionRef<TName extends string> = Readonly<{
   pagination?: Pagination;
 }>;
 
+/** Selection wrapper created by `defer(...)`. */
+export type DeferredSelection<S> = Readonly<{
+  [DeferTag]: S;
+}>;
+
+/** Runtime metadata used by the client to resolve a deferred field. */
+export type DeferredMetadata = Readonly<{
+  field: string;
+  id: string | number;
+  owner: EntityId;
+  selection: unknown;
+  type: string;
+}>;
+
+/** A deferred value returned from a masked view. Existing view hooks resolve it when read. */
+export type Deferred<T> = Readonly<{
+  [DeferredTag]: DeferredMetadata;
+}> & { readonly [__FateDeferredBrand]: T };
+
 /** Base shape shared by all entities fetched by fate. */
 export type Entity = { __typename: string };
 
@@ -184,8 +210,12 @@ type SelectionFieldValue<T extends Entity, K extends keyof T> =
   | SelectionArgs
   | (SelectionArgs & Extract<BaseSelectionFieldValue<T, K>, object>);
 
+type DeferrableSelectionFieldValue<T extends Entity, K extends keyof T> =
+  | SelectionFieldValue<T, K>
+  | DeferredSelection<SelectionFieldValue<T, K>>;
+
 type SelectionShape<T extends Entity> = {
-  [K in keyof T as K extends '__typename' ? never : K]?: SelectionFieldValue<T, K>;
+  [K in keyof T as K extends '__typename' ? never : K]?: DeferrableSelectionFieldValue<T, K>;
 } & { __typename?: true };
 
 type SelectionViewSpread<T extends Entity> = {
@@ -293,7 +323,9 @@ type MaskNonNullish<T, S> =
           : {
               [K in keyof S as K extends 'args' ? never : K]: S[K] extends true
                 ? NonNullish<T>[Extract<K, keyof T>]
-                : Mask<NonNullish<T>[Extract<K, keyof T>], Extract<S[K], object>>;
+                : S[K] extends DeferredSelection<infer DeferredSelectionValue>
+                  ? Deferred<Mask<NonNullish<T>[Extract<K, keyof T>], DeferredSelectionValue>>
+                  : Mask<NonNullish<T>[Extract<K, keyof T>], Extract<S[K], object>>;
             } & (T extends Entity ? Pick<NonNullish<T>, '__typename'> : Record<never, never>)
         : T;
 

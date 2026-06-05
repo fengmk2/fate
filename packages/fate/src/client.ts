@@ -7,6 +7,12 @@ import {
 } from './args.ts';
 import ViewDataCache from './cache.ts';
 import {
+  createDeferred,
+  getDeferredMetadata,
+  getDeferredSelection,
+  isDeferredSelection,
+} from './defer.ts';
+import {
   decodeClientHydrationState,
   encodeHydrationValue,
   resolveHydrationLimits,
@@ -28,6 +34,7 @@ import {
 import { createNodeRef, getNodeRefId, isNodeRef } from './node-ref.ts';
 import OperationLifetime, { type RetainHandle } from './operation-lifetime.ts';
 import type { FateLiveConnectionEvent } from './protocol.ts';
+import { isRecord } from './record.ts';
 import {
   assignViewTag,
   createRefWithViewNames,
@@ -44,7 +51,7 @@ import {
   type RequestDescriptor,
 } from './request-descriptor.ts';
 import FateRequestPromise from './request-promise.ts';
-import { getSelectionPlan, type SelectionPlan } from './selection.ts';
+import { getDeferredSelectionPlan, getSelectionPlan, type SelectionPlan } from './selection.ts';
 import { getListKey, List, Store } from './store.ts';
 import { Transport } from './transport.ts';
 import {
@@ -54,6 +61,7 @@ import {
   ViewResult,
   ViewsTag,
   type AnyRecord,
+  type Deferred,
   type Entity,
   type EntityId,
   type FateThenable,
@@ -90,6 +98,11 @@ export type RequestMode =
  * Request options that affect how requests are fetched and retained.
  */
 export type RequestOptions = Readonly<{ mode?: RequestMode }>;
+
+export type DeferredSnapshot<T> = Readonly<{
+  coverage: ReadonlyArray<readonly [id: EntityId, paths: ReadonlySet<string>]>;
+  data: T;
+}>;
 
 type FateClientOptions<
   Roots extends FateRoots,
@@ -410,6 +423,7 @@ export class FateClient<
   >();
   private readonly rootLists = new Map<string, Set<string>>();
   private readonly pending = new Map<string, PromiseLike<ViewSnapshot<any, any>>>();
+  private readonly pendingDeferred = new Map<string, PromiseLike<DeferredSnapshot<any>>>();
   private readonly pendingOptimisticMutations = new Map<EntityId, Set<Promise<unknown>>>();
   private readonly optimisticMasks = new Map<number, { entityId: EntityId; mask: FieldMask }>();
   private readonly optimisticByEntity = new Map<EntityId, Set<number>>();
@@ -974,6 +988,103 @@ export class FateClient<
       return promise as unknown as FateThenable<ViewSnapshot<T, S>>;
     }
     return resolveSnapshot();
+  }
+
+  readDeferred<T>(deferred: Deferred<T>): PromiseLike<DeferredSnapshot<T>> {
+    const metadata = getDeferredMetadata(deferred);
+    const resolvedOwner = this.optimisticEntityResolutions.get(metadata.owner) ?? metadata.owner;
+    const parsedOwner = parseEntityId(resolvedOwner);
+    const ownerRecord = this.store.read(resolvedOwner);
+    const rawOwnerId =
+      ownerRecord && (typeof ownerRecord.id === 'string' || typeof ownerRecord.id === 'number')
+        ? ownerRecord.id
+        : parsedOwner.id;
+    const ownerType = parsedOwner.type || metadata.type;
+    const plan = getDeferredSelectionPlan(metadata.field, metadata.selection);
+    const selectedPaths = plan.paths;
+    const missing = this.store.missingForSelection(resolvedOwner, selectedPaths);
+    const hasMissingList = () =>
+      this.hasMissingDeferredList(resolvedOwner, ownerType, metadata.field, plan);
+    const listMissing = hasMissingList();
+    const fetchPaths = listMissing ? selectedPaths : missing;
+
+    const resolveSnapshot = () => {
+      const snapshot = this.readViewSelection(
+        { [metadata.field]: metadata.selection } as View<any, any>,
+        this.stableRefWithViewNames(ownerType, rawOwnerId, new Set()),
+        resolvedOwner,
+        plan,
+      );
+      const resolved = {
+        coverage: snapshot.coverage,
+        data: (snapshot.data as AnyRecord)[metadata.field] as T,
+      };
+
+      return {
+        status: 'fulfilled',
+        then: <TResult1 = DeferredSnapshot<T>, TResult2 = never>(
+          onfulfilled?: (value: DeferredSnapshot<T>) => TResult1 | PromiseLike<TResult1>,
+          onrejected?: (reason: unknown) => TResult2 | PromiseLike<TResult2>,
+        ): PromiseLike<TResult1 | TResult2> =>
+          Promise.resolve(resolved).then(onfulfilled, onrejected),
+        value: resolved,
+      } as const;
+    };
+
+    if (missing.size === 0 && !listMissing) {
+      this.clearStalledRequestsForEntity(resolvedOwner);
+      return resolveSnapshot();
+    }
+
+    const key = this.deferredPendingKey(
+      resolvedOwner,
+      fetchPaths,
+      plan,
+      this.deferredSelectionSignature(metadata.selection),
+    );
+    if (this.stalledRequests.has(key)) {
+      return resolveSnapshot();
+    }
+
+    const pendingOptimistic = this.getPendingOptimisticMutations(resolvedOwner);
+    if (pendingOptimistic) {
+      const pending = this.pendingDeferred.get(key);
+      if (pending) {
+        return pending as PromiseLike<DeferredSnapshot<T>>;
+      }
+
+      const promise = Promise.all(pendingOptimistic)
+        .then(() => this.readDeferred(deferred))
+        .finally(() => this.pendingDeferred.delete(key));
+
+      this.pendingDeferred.set(key, promise);
+      return promise as PromiseLike<DeferredSnapshot<T>>;
+    }
+
+    const pendingPromise = this.pendingDeferred.get(key) || null;
+    if (pendingPromise) {
+      return pendingPromise as PromiseLike<DeferredSnapshot<T>>;
+    }
+
+    const promise = this.trackPendingRequest(async () => {
+      try {
+        await this.fetchByIdAndNormalize(ownerType, [rawOwnerId], fetchPaths, plan);
+        const remainingMissing = this.store.missingForSelection(resolvedOwner, selectedPaths);
+
+        if (remainingMissing.size > 0 || hasMissingList()) {
+          this.stalledRequests.add(key);
+          return resolveSnapshot().value;
+        }
+
+        this.stalledRequests.delete(key);
+        return (this.readDeferred(deferred) as FateThenable<DeferredSnapshot<T>>).value;
+      } finally {
+        this.pendingDeferred.delete(key);
+      }
+    });
+
+    this.pendingDeferred.set(key, promise);
+    return promise;
   }
 
   assertLiveViewSupport() {
@@ -2901,9 +3012,22 @@ export class FateClient<
           continue;
         }
 
+        const fieldPath = prefix ? `${prefix}.${key}` : key;
+        if (isDeferredSelection(selectionKind)) {
+          const { id, type } = parseEntityId(parentId);
+          coverageById.set(parentId, (coverageById.get(parentId) ?? new Set()).add(key));
+          target[key] = createDeferred({
+            field: key,
+            id,
+            owner: parentId,
+            selection: getDeferredSelection(selectionKind),
+            type,
+          });
+          continue;
+        }
+
         coverageById.set(parentId, (coverageById.get(parentId) ?? new Set()).add(key));
 
-        const fieldPath = prefix ? `${prefix}.${key}` : key;
         const selectionType = typeof selectionKind;
         if (selectionType === 'boolean' && selectionKind) {
           target[key] = record[key];
@@ -3089,8 +3213,13 @@ export class FateClient<
       __typename: parseEntityId(entityId).type,
     };
 
-    for (const viewPayload of getViewPayloads(viewComposition, ref)) {
-      walk(viewPayload.select, record, data, entityId, pathPrefix);
+    const payloads = getViewPayloads(viewComposition, ref);
+    if (payloads.length === 0 && isRecord(viewComposition)) {
+      walk(viewComposition, record, data, entityId, pathPrefix);
+    } else {
+      for (const viewPayload of payloads) {
+        walk(viewPayload.select, record, data, entityId, pathPrefix);
+      }
     }
 
     return {
@@ -3115,6 +3244,73 @@ export class FateClient<
 
   private pendingKey(entityId: string, missingFields: Set<string>) {
     return `${this.pendingPrefix(entityId)}${[...missingFields].sort().join('|')}`;
+  }
+
+  private deferredPendingKey(
+    entityId: EntityId,
+    fields: ReadonlySet<string>,
+    plan: SelectionPlan,
+    selectionSignature: string,
+  ) {
+    const args = [...plan.args.entries()]
+      .map(([path, entry]) => `${path}:${entry.hash}`)
+      .sort()
+      .join('|');
+    return `${this.pendingKey(entityId, new Set(fields))}|${args}|${selectionSignature}`;
+  }
+
+  private deferredSelectionSignature(selection: unknown) {
+    const seen = new Set<object>();
+
+    const serialize = (value: unknown): string => {
+      if (value === null || typeof value !== 'object') {
+        return `${typeof value}:${String(value)}`;
+      }
+
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+
+      seen.add(value);
+
+      if (Array.isArray(value)) {
+        return `[${value.map((item) => serialize(item)).join(',')}]`;
+      }
+
+      const entries = Object.entries(value as AnyRecord)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => (isViewTag(key) ? `view:${key}` : `${key}:${serialize(entry)}`));
+
+      return `{${entries.join(',')}}`;
+    };
+
+    return serialize(selection);
+  }
+
+  private hasMissingDeferredList(
+    owner: EntityId,
+    type: string,
+    field: string,
+    plan: SelectionPlan,
+  ) {
+    const descriptor = this.types.get(type)?.fields?.[field];
+    if (!descriptor || descriptor === 'scalar' || !('listOf' in descriptor)) {
+      return false;
+    }
+
+    const fieldArgs = plan.args.get(field);
+    const listState = this.store.getListState(getListKey(owner, field, fieldArgs?.hash));
+    if (!listState) {
+      return true;
+    }
+
+    const args = fieldArgs?.value as AnyRecord | undefined;
+    const paginationArgs = getPaginationArgsInfo(args);
+    if (paginationArgs.hasCursorArg) {
+      return true;
+    }
+
+    return !hasConnectionPageCoverage(listState, args, paginationArgs.direction);
   }
 
   private liveSubscriptionKey(entityId: EntityId, plan: SelectionPlan) {

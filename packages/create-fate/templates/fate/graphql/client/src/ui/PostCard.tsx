@@ -4,6 +4,7 @@ import { cx } from 'class-variance-authority';
 import { fbs } from 'fbtee';
 import {
   KeyboardEvent,
+  Suspense,
   startTransition,
   useActionState,
   useCallback,
@@ -11,7 +12,15 @@ import {
   useState,
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { useFateClient, useListView, useView, view, ViewRef } from 'react-fate';
+import {
+  defer,
+  type Deferred,
+  useListView,
+  useFateClient,
+  useView,
+  view,
+  ViewRef,
+} from 'react-fate';
 import { Button } from '../ui/Button.tsx';
 import Card from '../ui/Card.tsx';
 import AuthClient from '../user/AuthClient.tsx';
@@ -30,12 +39,35 @@ const CommentConnectionView = {
 export const PostView = view<Post>()({
   author: UserView,
   commentCount: true,
-  comments: CommentConnectionView,
+  comments: defer(CommentConnectionView),
   content: true,
   id: true,
   likes: true,
   title: true,
 });
+
+const PostComments = ({
+  comments,
+  post,
+}: {
+  comments: Deferred<{ items: ReadonlyArray<{ node: ViewRef<'Comment'> }> }>;
+  post: { commentCount: number; id: string; title: string };
+}) => {
+  const [items, loadNext] = useListView(CommentConnectionView, comments);
+
+  return items.length > 0 ? (
+    <VStack gap={12}>
+      {items.map(({ node }) => (
+        <CommentCard comment={node} key={node.id} post={post} />
+      ))}
+      {loadNext ? (
+        <Button onClick={loadNext} variant="ghost">
+          <fbt desc="Load more comments button">Load more comments</fbt>
+        </Button>
+      ) : null}
+    </VStack>
+  ) : null;
+};
 
 const CommentInput = ({
   error,
@@ -125,7 +157,6 @@ export function PostCard({ detail, post: postRef }: { detail?: boolean; post: Vi
   const fate = useFateClient();
   const post = useView(PostView, postRef);
   const author = useView(UserView, post.author);
-  const [comments, loadNext] = useListView(CommentConnectionView, post.comments);
 
   const [likeResult, likeAction, likeIsPending] = useActionState(fate.actions.post.like, null);
 
@@ -259,18 +290,9 @@ export function PostCard({ detail, post: postRef }: { detail?: boolean; post: Vi
               </fbt:plural>
             </fbt>
           </h4>
-          {comments.length > 0 ? (
-            <VStack gap={12}>
-              {comments.map(({ node }) => (
-                <CommentCard comment={node} key={node.id} post={post} />
-              ))}
-              {loadNext ? (
-                <Button onClick={loadNext} variant="ghost">
-                  <fbt desc="Load more comments button">Load more comments</fbt>
-                </Button>
-              ) : null}
-            </VStack>
-          ) : null}
+          <Suspense fallback={null}>
+            <PostComments comments={post.comments} post={post} />
+          </Suspense>
           <ErrorBoundary fallbackRender={({ error }) => <CommentInput error={error} post={post} />}>
             <CommentInput post={post} />
           </ErrorBoundary>

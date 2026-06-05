@@ -2,18 +2,73 @@
  * @vitest-environment happy-dom
  */
 
-import { createClient, clientRoot, toEntityId, view, ViewRef } from '@nkzw/fate';
+import {
+  createClient,
+  clientRoot,
+  defer,
+  toEntityId,
+  view,
+  type Deferred,
+  type ViewRef,
+} from '@nkzw/fate';
 import { act, Suspense, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, expectTypeOf, test, vi } from 'vite-plus/test';
 import { FateClient } from '../context.tsx';
-import { useView } from '../index.tsx';
+import { useListView, useView } from '../index.tsx';
 import { useRequest } from '../useRequest.tsx';
 
 // @ts-expect-error React 🤷‍♂️
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 type Post = { __typename: 'Post'; content: string; id: string };
+
+type User = { __typename: 'User'; id: string; name: string };
+
+type Comment = { __typename: 'Comment'; content: string; id: string };
+
+type PostWithAuthor = Post & { author: User };
+
+type PostWithComments = Post & { comments: Array<Comment> };
+
+const DeferredCommentView = view<Comment>()({
+  content: true,
+  id: true,
+});
+
+const DeferredCommentConnectionView = {
+  items: { node: DeferredCommentView },
+};
+
+const DeferredUserView = view<User>()({
+  id: true,
+  name: true,
+});
+
+const DeferredCommentRow = ({ comment }: { comment: ViewRef<'Comment'> }) => {
+  const commentData = useView(DeferredCommentView, comment);
+  return <span>{commentData.content}</span>;
+};
+
+const DeferredComments = ({
+  comments,
+}: {
+  comments: Deferred<{ items: ReadonlyArray<{ node: ViewRef<'Comment'> }> }>;
+}) => {
+  const [items] = useListView(DeferredCommentConnectionView, comments);
+  return (
+    <span>
+      {items.map(({ node }) => (
+        <DeferredCommentRow comment={node} key={node.id} />
+      ))}
+    </span>
+  );
+};
+
+const DeferredAuthor = ({ author }: { author: Deferred<ViewRef<'User'>> }) => {
+  const authorData = useView(DeferredUserView, author);
+  return <span>{authorData.name}</span>;
+};
 
 const flushAsync = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -183,6 +238,188 @@ test('supports requesting a single node through `byId` calls', async () => {
 
   expect(renders).toEqual(['Apple']);
   expect(fetchById).toHaveBeenCalledTimes(1);
+});
+
+test('deferred connection fields suspend inside their own boundary', async () => {
+  const comments = Promise.withResolvers<Array<unknown>>();
+  const fetchById = vi.fn((_type: string, _ids: Array<string | number>, select: Set<string>) => {
+    const paths = [...select];
+    if (paths.some((path) => path.startsWith('comments.'))) {
+      return comments.promise;
+    }
+
+    return Promise.resolve([
+      {
+        __typename: 'Post',
+        content: 'Apple',
+        id: 'post-1',
+      },
+    ]);
+  });
+
+  const roots = {
+    post: clientRoot('Post'),
+  };
+  const client = createClient({
+    roots,
+    transport: { fetchById },
+    types: [
+      { fields: { comments: { listOf: 'Comment' }, content: 'scalar' }, type: 'Post' },
+      { fields: { content: 'scalar' }, type: 'Comment' },
+    ],
+  });
+
+  const PostView = view<PostWithComments>()({
+    comments: defer(DeferredCommentConnectionView),
+    content: true,
+    id: true,
+  });
+
+  const Component = () => {
+    const { post: postRef } = useRequest({ post: { id: 'post-1', view: PostView } });
+    const post = useView(PostView, postRef);
+    return (
+      <>
+        <span>{post.content}</span>
+        <Suspense fallback={<span>Loading comments</span>}>
+          <DeferredComments comments={post.comments} />
+        </Suspense>
+      </>
+    );
+  };
+
+  const container = document.createElement('div');
+  const reactRoot = createRoot(container);
+
+  await act(async () => {
+    reactRoot.render(
+      <FateClient client={client}>
+        <Suspense fallback={null}>
+          <Component />
+        </Suspense>
+      </FateClient>,
+    );
+
+    await flushAsync();
+  });
+
+  expect(container.textContent).toBe('AppleLoading comments');
+  expect(fetchById).toHaveBeenCalledTimes(2);
+  expect([...fetchById.mock.calls[0]![2]]).toEqual(['content', 'id']);
+  expect([...fetchById.mock.calls[1]![2]]).toEqual(['comments.content', 'comments.id']);
+
+  await act(async () => {
+    comments.resolve([
+      {
+        __typename: 'Post',
+        comments: [
+          {
+            __typename: 'Comment',
+            content: 'Banana',
+            id: 'comment-1',
+          },
+        ],
+        id: 'post-1',
+      },
+    ]);
+    await flushAsync();
+  });
+
+  expect(container.textContent).toBe('AppleBanana');
+});
+
+test('deferred entity fields resolve through useView inside their own boundary', async () => {
+  const author = Promise.withResolvers<Array<unknown>>();
+  const fetchById = vi.fn((_type: string, _ids: Array<string | number>, select: Set<string>) => {
+    const paths = [...select];
+    if (paths.some((path) => path.startsWith('author.'))) {
+      return author.promise;
+    }
+
+    return Promise.resolve([
+      {
+        __typename: 'Post',
+        content: 'Apple',
+        id: 'post-1',
+      },
+    ]);
+  });
+
+  const roots = {
+    post: clientRoot('Post'),
+  };
+  const client = createClient({
+    roots,
+    transport: { fetchById },
+    types: [
+      { fields: { author: { type: 'User' }, content: 'scalar' }, type: 'Post' },
+      { fields: { name: 'scalar' }, type: 'User' },
+    ],
+  });
+
+  const PostView = view<PostWithAuthor>()({
+    author: defer(DeferredUserView),
+    content: true,
+    id: true,
+  });
+
+  const Component = () => {
+    const { post: postRef } = useRequest({ post: { id: 'post-1', view: PostView } });
+    const post = useView(PostView, postRef);
+    return (
+      <>
+        <span>{post.content}</span>
+        <Suspense fallback={<span>Loading author</span>}>
+          <DeferredAuthor author={post.author} />
+        </Suspense>
+      </>
+    );
+  };
+
+  const container = document.createElement('div');
+  const reactRoot = createRoot(container);
+
+  await act(async () => {
+    reactRoot.render(
+      <FateClient client={client}>
+        <Suspense fallback={null}>
+          <Component />
+        </Suspense>
+      </FateClient>,
+    );
+
+    await flushAsync();
+  });
+
+  expect(container.textContent).toBe('AppleLoading author');
+
+  await act(async () => {
+    author.resolve([
+      {
+        __typename: 'Post',
+        author: { __typename: 'User', id: 'user-1', name: 'Banana' },
+        id: 'post-1',
+      },
+    ]);
+    await flushAsync();
+  });
+
+  expect(container.textContent).toBe('AppleBanana');
+
+  await act(async () => {
+    client.write(
+      'User',
+      {
+        __typename: 'User',
+        id: 'user-1',
+        name: 'Cherry',
+      },
+      new Set(['name']),
+    );
+    await flushAsync();
+  });
+
+  expect(container.textContent).toBe('AppleCherry');
 });
 
 test('renders cache-first requests from hydrated SSR state without refetching', async () => {

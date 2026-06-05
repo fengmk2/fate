@@ -1,4 +1,5 @@
 import {
+  Deferred,
   EntityId,
   FateThenable,
   View,
@@ -12,6 +13,7 @@ import {
 } from '@nkzw/fate';
 import { use, useCallback, useDeferredValue, useRef, useSyncExternalStore } from 'react';
 import { useFateClient } from './context.tsx';
+import { fulfilledThenable, isDeferredValue, isFulfilledThenable } from './deferred.ts';
 
 type ViewEntityWithTypename<V extends View<any, any>> = ViewEntity<V> & {
   __typename: ViewEntityName<V>;
@@ -38,13 +40,88 @@ export function useView<V extends View<any, any>, R extends ViewRef<ViewEntityNa
   view: V,
   ref: R,
 ): R extends null ? null : ViewData<ViewEntityWithTypename<V>, ViewSelection<V>>;
+export function useView<
+  V extends View<any, any>,
+  R extends Deferred<ViewRef<ViewEntityName<V>>> | null,
+>(view: V, ref: R): R extends null ? null : ViewData<ViewEntityWithTypename<V>, ViewSelection<V>>;
 export function useView<V extends View<any, any>>(
   view: V,
-  ref: ViewRef<ViewEntityName<V>> | null,
+  ref: Deferred<ViewRef<ViewEntityName<V>>> | ViewRef<ViewEntityName<V>> | null,
+): ViewData<ViewEntityWithTypename<V>, ViewSelection<V>> | null;
+export function useView<V extends View<any, any>>(
+  view: V,
+  ref: Deferred<ViewRef<ViewEntityName<V>>> | ViewRef<ViewEntityName<V>> | null,
 ): ViewData<ViewEntityWithTypename<V>, ViewSelection<V>> | null {
   const client = useFateClient();
-
+  const isDeferredRef = isDeferredValue(ref);
   const snapshotRef = useRef<ViewSnapshot<ViewEntity<V>, V[ViewTag]['select']> | null>(null);
+  const mergedSnapshotRef = useRef<{
+    cacheKey: unknown;
+    resolvedKey: string | null;
+    source: ViewSnapshot<ViewEntity<V>, V[ViewTag]['select']>;
+    thenable: FateThenable<ViewSnapshot<ViewEntity<V>, V[ViewTag]['select']>>;
+  } | null>(null);
+  const pendingRef = useRef<{
+    deferred: Deferred<ViewRef<ViewEntityName<V>>>;
+    snapshot: PromiseLike<unknown>;
+    viewSnapshot: PromiseLike<ViewSnapshot<ViewEntity<V>, V[ViewTag]['select']> | null>;
+  } | null>(null);
+
+  const readViewSnapshot = useCallback(
+    (
+      viewRef: ViewRef<ViewEntityName<V>>,
+      coverage: ViewSnapshot<ViewEntity<V>, V[ViewTag]['select']>['coverage'] = [],
+      cacheKey?: unknown,
+    ) => {
+      const snapshot = client.readView<ViewEntity<V>, V[ViewTag]['select'], V>(view, viewRef);
+      const mergeCoverage = (
+        value: ViewSnapshot<ViewEntity<V>, V[ViewTag]['select']>,
+      ): ViewSnapshot<ViewEntity<V>, V[ViewTag]['select']> => ({
+        ...value,
+        coverage: coverage.length ? [...coverage, ...value.coverage] : value.coverage,
+      });
+
+      if (isFulfilledThenable(snapshot)) {
+        if (coverage.length) {
+          const cached = mergedSnapshotRef.current;
+          const resolvedKey = `${viewRef.__typename}:${String(viewRef.id)}`;
+          if (
+            cached?.source === snapshot.value &&
+            cached.cacheKey === cacheKey &&
+            cached.resolvedKey === resolvedKey
+          ) {
+            snapshotRef.current = cached.thenable.value;
+            return cached.thenable;
+          }
+
+          const value = mergeCoverage(snapshot.value);
+          const thenable = fulfilledThenable(value);
+          mergedSnapshotRef.current = {
+            cacheKey,
+            resolvedKey,
+            source: snapshot.value,
+            thenable,
+          };
+          snapshotRef.current = value;
+          return thenable;
+        }
+
+        mergedSnapshotRef.current = null;
+        const value = snapshot.value;
+        snapshotRef.current = value;
+        return snapshot;
+      }
+
+      mergedSnapshotRef.current = null;
+      snapshotRef.current = null;
+      return Promise.resolve(snapshot).then((value) => {
+        const resolved = mergeCoverage(value);
+        snapshotRef.current = resolved;
+        return resolved;
+      });
+    },
+    [client, view],
+  );
 
   const getSnapshot = useCallback(() => {
     if (ref === null) {
@@ -52,10 +129,65 @@ export function useView<V extends View<any, any>>(
       return nullSnapshot;
     }
 
-    const snapshot = client.readView<ViewEntity<V>, V[ViewTag]['select'], V>(view, ref);
-    snapshotRef.current = snapshot.status === 'fulfilled' ? snapshot.value : null;
-    return snapshot;
-  }, [client, view, ref]);
+    if (!isDeferredRef) {
+      pendingRef.current = null;
+      return readViewSnapshot(ref);
+    }
+
+    const deferredSnapshot = client.readDeferred(ref);
+    if (isFulfilledThenable(deferredSnapshot)) {
+      const resolvedRef = deferredSnapshot.value.data;
+      pendingRef.current = null;
+      if (resolvedRef === null) {
+        snapshotRef.current = {
+          coverage: deferredSnapshot.value.coverage,
+          data: null as unknown as ViewData<ViewEntity<V>, V[ViewTag]['select']>,
+        };
+        return fulfilledThenable(snapshotRef.current);
+      }
+
+      return readViewSnapshot(
+        client.ref(resolvedRef.__typename, resolvedRef.id, view),
+        deferredSnapshot.value.coverage,
+        ref,
+      );
+    }
+
+    if (pendingRef.current?.deferred === ref && pendingRef.current.snapshot === deferredSnapshot) {
+      return pendingRef.current.viewSnapshot;
+    }
+
+    snapshotRef.current = null;
+    const viewSnapshot = Promise.resolve(deferredSnapshot).then((deferredValue) => {
+      const resolvedRef = deferredValue.data;
+      if (resolvedRef === null) {
+        const value = {
+          coverage: deferredValue.coverage,
+          data: null as unknown as ViewData<ViewEntity<V>, V[ViewTag]['select']>,
+        };
+        snapshotRef.current = value;
+        return value;
+      }
+
+      return Promise.resolve(
+        readViewSnapshot(
+          client.ref(resolvedRef.__typename, resolvedRef.id, view),
+          deferredValue.coverage,
+          ref,
+        ),
+      ).then((value) => {
+        snapshotRef.current = value;
+        return value;
+      });
+    });
+
+    pendingRef.current = {
+      deferred: ref,
+      snapshot: deferredSnapshot,
+      viewSnapshot,
+    };
+    return viewSnapshot;
+  }, [client, view, ref, isDeferredRef, readViewSnapshot]);
 
   const subscribe = useCallback(
     (onStoreChange: () => void) => {

@@ -1,6 +1,16 @@
-import { View, ViewData, ViewEntity, ViewEntityName, ViewRef, ViewSelection } from '@nkzw/fate';
-import { useEffect, useEffectEvent } from 'react';
+import {
+  Deferred,
+  DeferredSnapshot,
+  View,
+  ViewData,
+  ViewEntity,
+  ViewEntityName,
+  ViewRef,
+  ViewSelection,
+} from '@nkzw/fate';
+import { use, useEffect, useEffectEvent } from 'react';
 import { useFateClient } from './context.tsx';
+import { isDeferredValue } from './deferred.ts';
 import { useView } from './useView.tsx';
 
 type ViewEntityWithTypename<V extends View<any, any>> = ViewEntity<V> & {
@@ -18,24 +28,35 @@ export function useLiveView<V extends View<any, any>, R extends ViewRef<ViewEnti
   view: V,
   ref: R,
 ): R extends null ? null : ViewData<ViewEntityWithTypename<V>, ViewSelection<V>>;
+export function useLiveView<
+  V extends View<any, any>,
+  R extends Deferred<ViewRef<ViewEntityName<V>>> | null,
+>(view: V, ref: R): R extends null ? null : ViewData<ViewEntityWithTypename<V>, ViewSelection<V>>;
 export function useLiveView<V extends View<any, any>>(
   view: V,
-  ref: ViewRef<ViewEntityName<V>> | null,
+  ref: Deferred<ViewRef<ViewEntityName<V>>> | ViewRef<ViewEntityName<V>> | null,
 ): ViewData<ViewEntityWithTypename<V>, ViewSelection<V>> | null {
   const client = useFateClient();
-  const liveId = ref?.id;
-  const liveType = ref?.__typename;
+  const resolvedRef = isDeferredValue(ref)
+    ? (use(client.readDeferred(ref)) as DeferredSnapshot<ViewRef<ViewEntityName<V>> | null>).data
+    : ref;
+  const liveRef = resolvedRef ? client.ref(resolvedRef.__typename, resolvedRef.id, view) : null;
+  const liveId = liveRef?.id;
+  const liveType = liveRef?.__typename;
 
   const subscribeLiveView = useEffectEvent(() => {
-    if (ref === null) {
+    if (liveRef === null) {
       return;
     }
 
     client.assertLiveViewSupport();
-    return client.subscribeLiveView(view, ref);
+    return client.subscribeLiveView(view, liveRef);
   });
 
   useEffect(() => subscribeLiveView(), [client, view, liveId, liveType]);
 
-  return useView(view, ref);
+  return useView(
+    view,
+    ref as Deferred<ViewRef<ViewEntityName<V>>> | ViewRef<ViewEntityName<V>> | null,
+  );
 }
