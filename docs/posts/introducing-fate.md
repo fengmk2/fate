@@ -164,7 +164,7 @@ const LikeButton = ({ post }) => {
 
 When this action is called, _fate_ automatically updates all views that depend on the `likes` field of the particular `Post` object. It doesn't re-render components that didn't select that field. There's no need to manually patch or invalidate cache entries. If the action fails, _fate_ rolls back the optimistic update automatically and re-renders all affected components.
 
-All of the above works because _fate_ has a normalized data cache under the hood, with objects stored by their ID and type name (`__typename`, e.g. `Post` or `User`), and a [backend conforming to _fate_'s data protocol](/guide/server-integration), exposing `byId` and `list` queries for each data type.
+All of the above works because _fate_ has a normalized data cache under the hood, with objects stored by their ID and type name (`__typename`, e.g. `Post` or `User`), and a [backend conforming to _fate_'s data protocol](/integrations/server), exposing `byId` and `list` queries for each data type.
 
 You can adopt _fate_ incrementally in an existing tRPC codebase without changing your existing schema by adding these queries alongside your existing procedures.
 

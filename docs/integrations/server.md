@@ -4,7 +4,7 @@ Until now, we have focused on the client-side API of fate. You'll need a backend
 
 - The native fate protocol, which is transport-agnostic and can be hosted by any Fetch-compatible server.
 - The tRPC adapter, which keeps compatibility with existing tRPC backends.
-- The [GraphQL transport](/guide/graphql-integration), which maps fate views and roots to an existing GraphQL schema.
+- The [GraphQL transport](/integrations/graphql), which maps fate views and roots to an existing GraphQL schema.
 
 _fate_ currently provides database adapters for Prisma and Drizzle, but the framework itself is not coupled to a particular ORM. The adapters plug into the same source execution runtime and can be exposed through the native protocol or through tRPC.
 
@@ -185,7 +185,9 @@ app.post('/fate/live', handler);
 
 Configure the Vite plugin with the native transport:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { fate } from 'react-fate/vite';
 import { defineConfig } from 'vite';
 
@@ -199,15 +201,45 @@ export default defineConfig({
 });
 ```
 
+```ts [Vue]
+import vue from '@vitejs/plugin-vue';
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    fate({
+      module: '@your-org/server/fate.ts',
+      transport: 'native',
+    }),
+  ],
+});
+```
+
+:::
+
 With the native transport, the Vite plugin handles the HTTP transport setup. If you need to create a client manually, use `createFateClient` with the same route:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { createFateClient } from 'react-fate/client';
 
 const client = createFateClient({
   url: '/fate',
 });
 ```
+
+```ts [Vue]
+import { createFateClient } from 'vue-fate/client';
+
+const client = createFateClient({
+  url: '/fate',
+});
+```
+
+:::
 
 The HTTP transport batches operations issued in the same microtask into one `POST /fate` request. Live views use one `GET /fate/live` SSE stream per fate client and `POST /fate/live` control messages when views subscribe or unsubscribe.
 
@@ -585,7 +617,9 @@ export * from './views.ts';
 
 Configure the fate Vite plugin with your server module:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { fate } from 'react-fate/vite';
 import { defineConfig } from 'vite';
 
@@ -598,11 +632,28 @@ export default defineConfig({
 });
 ```
 
+```ts [Vue]
+import vue from '@vitejs/plugin-vue';
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    fate({
+      module: '@your-org/server/trpc/router.ts',
+    }),
+  ],
+});
+```
+
+:::
+
 _Note: fate uses the specified server module name to find the server types it needs. Make sure that the module is available to the client package's Vite config._
 
 During development, the plugin watches the server module and the files it imports. When one of those files changes, fate updates the internal client wiring and invalidates `@nkzw/fate/client` in Vite's module graph.
 
-For a barebones client without React, import the plugin from `@nkzw/fate/vite` and the client APIs from `@nkzw/fate/client`. The plugin wires the same server types for the selected import path.
+For a barebones client without a framework adapter, import the plugin from `@nkzw/fate/vite` and the client APIs from `@nkzw/fate/client`. The plugin wires the same server types for the selected import path.
 
 The plugin writes project-local types under `.fate/`. If your TypeScript config does not already include dot-directories, extend the generated config:
 
@@ -614,9 +665,11 @@ The plugin writes project-local types under `.fate/`. If your TypeScript config 
 
 ## Creating a _fate_ Client
 
-Now that the Vite plugin has connected the types, create a fate client instance and provide it to your React app with the `FateClient` context provider:
+Now that the Vite plugin has connected the types, create a fate client instance and provide it to your app with the `FateClient` provider:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { httpBatchLink } from '@trpc/client';
 import { FateClient } from 'react-fate';
 import { createFateClient } from 'react-fate/client';
@@ -641,5 +694,38 @@ export function App() {
   return <FateClient client={fate}>{/* Components go here */}</FateClient>;
 }
 ```
+
+```vue [Vue]
+<script setup lang="ts">
+import { httpBatchLink } from '@trpc/client';
+import { computed } from 'vue';
+import { FateClient } from 'vue-fate';
+import { createFateClient } from 'vue-fate/client';
+import AppRoutes from './AppRoutes.vue';
+
+const fate = computed(() =>
+  createFateClient({
+    links: [
+      httpBatchLink({
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            credentials: 'include',
+          }),
+        url: `${env('SERVER_URL')}/trpc`,
+      }),
+    ],
+  }),
+);
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <AppRoutes />
+  </FateClient>
+</template>
+```
+
+:::
 
 _And you are all set. Happy building!_

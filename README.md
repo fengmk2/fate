@@ -1,4 +1,4 @@
-<!-- auto-generated from docs/guide/*.md. Do not edit directly. -->
+<!-- auto-generated from docs/guide/*.md and docs/integrations/*.md. Do not edit directly. -->
 
 <p align="center">
   <picture>
@@ -68,11 +68,11 @@ Create a new fate app with Vite+:
 vp create fate my-app
 ```
 
-The template selector can create a Void app with Drizzle, a tRPC app with Drizzle or Prisma, a GraphQL app with Prisma, or a fate client for an existing GraphQL server. The template sources live in the fate repo under [`packages/create-fate/templates/fate`](https://github.com/nkzw-tech/fate/tree/main/packages/create-fate/templates/fate). They feature modern tools to deliver an incredibly fast development experience.
+The template selector can create a React or Vue client for a Void app with Drizzle, a tRPC app with Drizzle or Prisma, a GraphQL app with Prisma, or a fate client for an existing GraphQL server. React is the default UI framework; pass `--framework vue` or choose Vue in the template selector to create a Vue app. The template sources live in the fate repo under [`packages/create-fate/templates/fate`](https://github.com/nkzw-tech/fate/tree/main/packages/create-fate/templates/fate). They feature modern tools to deliver an incredibly fast development experience.
 
 ### Manual Installation
 
-**_fate_** requires React 19.2+. For a React client, install `react-fate`:
+For a React client, install `react-fate`. It requires React 19.2+:
 
 ::: code-group
 
@@ -90,7 +90,25 @@ yarn add react-fate
 
 :::
 
-If your server is a separate package, install `@nkzw/fate` there as a runtime dependency too. Install `@nkzw/fate` on the client only for a barebones integration without React:
+For a Vue client, install `vue-fate`:
+
+::: code-group
+
+```bash [npm]
+npm add vue-fate
+```
+
+```bash [pnpm]
+pnpm add vue-fate
+```
+
+```bash [yarn]
+yarn add vue-fate
+```
+
+:::
+
+If your server is a separate package, install `@nkzw/fate` there as a runtime dependency too. Install `@nkzw/fate` on the client only for a barebones integration without a framework adapter:
 
 ::: code-group
 
@@ -205,69 +223,6 @@ export function App() {
 ```
 
 _Learn more about `useRequest` in the [Requests Guide](/docs/guide/requests.md)._
-
-### Deferred Fields
-
-Use `defer` when a field should not block the parent view. The parent view receives a deferred handle immediately after the eager fields are available, and the component that reads that handle with `useView`, `useListView`, or `useLiveListView` decides which `Suspense` boundary handles the loading state.
-
-```tsx
-import { Suspense } from 'react';
-import { defer, useListView, useView, view, Deferred, ViewRef } from 'react-fate';
-
-const CommentView = view<Comment>()({
-  content: true,
-  id: true,
-});
-
-const CommentConnectionView = {
-  args: { first: 3 },
-  items: { node: CommentView },
-};
-
-const PostView = view<Post>()({
-  comments: defer(CommentConnectionView),
-  content: true,
-  id: true,
-  title: true,
-});
-
-function PostCard({ post: postRef }: { post: ViewRef<'Post'> }) {
-  const post = useView(PostView, postRef);
-
-  return (
-    <article>
-      <h2>{post.title}</h2>
-      <p>{post.content}</p>
-      <Suspense fallback={<CommentsSkeleton />}>
-        <PostComments comments={post.comments} />
-      </Suspense>
-    </article>
-  );
-}
-
-function PostComments({
-  comments,
-}: {
-  comments: Deferred<{ items: ReadonlyArray<{ node: ViewRef<'Comment'> }> }>;
-}) {
-  const [items, loadNext] = useListView(CommentConnectionView, comments);
-
-  return (
-    <section>
-      {items.map(({ node }) => (
-        <CommentCard comment={node} key={node.id} />
-      ))}
-      {loadNext ? <button onClick={loadNext}>Load more</button> : null}
-    </section>
-  );
-}
-```
-
-Deferred fields are not optional data. They are explicit handles that existing view APIs can read. If the deferred selection is missing from the normalized cache, fate fetches only that missing selection and suspends the component that tried to resolve it.
-
-This keeps parent components simple: eager fields like `title` and `content` are available when `useView(PostView, postRef)` returns, while slower or secondary fields such as `comments` can load under their own boundary.
-
-GraphQL transports use the same client semantics today. The deferred field is omitted from the eager request and fetched when the deferred handle is resolved. GraphQL `@defer` is the natural transport representation for this feature, but consuming incremental multipart patches requires additional transport support before fate can safely normalize streamed patches from a single GraphQL response.
 
 ### Composing Views
 
@@ -664,6 +619,69 @@ fate.hydrate(loaderData.fate, { merge: 'replace' });
 
 Do not reuse request-scoped snapshots across users. Dehydrate after awaited route preloading: snapshots are point-in-time values and do not stream cache patches for data that resolves later. Hydration and dehydration reject clients with in-flight requests, so hydrate the initial snapshot before rendering.
 
+## Deferred Views
+
+Use `defer` when a field should not block the parent view. The parent view receives a deferred handle immediately after the eager fields are available, and the component that reads that handle with `useView`, `useListView`, or `useLiveListView` decides which `Suspense` boundary handles the loading state.
+
+```tsx
+import { Suspense } from 'react';
+import { defer, useListView, useView, view, Deferred, ViewRef } from 'react-fate';
+
+const CommentView = view<Comment>()({
+  content: true,
+  id: true,
+});
+
+const CommentConnectionView = {
+  args: { first: 3 },
+  items: { node: CommentView },
+};
+
+const PostView = view<Post>()({
+  comments: defer(CommentConnectionView),
+  content: true,
+  id: true,
+  title: true,
+});
+
+function PostCard({ post: postRef }: { post: ViewRef<'Post'> }) {
+  const post = useView(PostView, postRef);
+
+  return (
+    <article>
+      <h2>{post.title}</h2>
+      <p>{post.content}</p>
+      <Suspense fallback={<CommentsSkeleton />}>
+        <PostComments comments={post.comments} />
+      </Suspense>
+    </article>
+  );
+}
+
+function PostComments({
+  comments,
+}: {
+  comments: Deferred<{ items: ReadonlyArray<{ node: ViewRef<'Comment'> }> }>;
+}) {
+  const [items, loadNext] = useListView(CommentConnectionView, comments);
+
+  return (
+    <section>
+      {items.map(({ node }) => (
+        <CommentCard comment={node} key={node.id} />
+      ))}
+      {loadNext ? <button onClick={loadNext}>Load more</button> : null}
+    </section>
+  );
+}
+```
+
+Deferred fields are not optional data. They are explicit handles that existing view APIs can read. If the deferred selection is missing from the normalized cache, fate fetches only that missing selection and suspends the component that tried to resolve it.
+
+This keeps parent components simple: eager fields like `title` and `content` are available when `useView(PostView, postRef)` returns, while slower or secondary fields such as `comments` can load under their own boundary.
+
+GraphQL transports use the same client semantics today. The deferred field is omitted from the eager request and fetched when the deferred handle is resolved. GraphQL `@defer` is the natural transport representation for this feature, but consuming incremental multipart patches requires additional transport support before fate can safely normalize streamed patches from a single GraphQL response.
+
 ## List Views
 
 ### Pagination with `useListView`
@@ -1019,9 +1037,9 @@ fate does not provide hooks for mutations like traditional data fetching librari
 
 Server mutations are exposed automatically as actions and mutations by fate's Vite plugin. The transport determines where those mutations are declared:
 
-- With the [native HTTP transport](/docs/guide/server-integration.md#native-fate-protocol), mutations come from the `mutations` object passed to `createFateServer`.
-- With the [tRPC adapter](/docs/guide/server-integration.md#trpc-fate-setup), mutations come from tRPC mutation procedures exposed through your fate-enabled router.
-- With [Void](/docs/guide/void-integration.md), mutations use the same native fate server shape and are exposed through the Void route helpers.
+- With the [native HTTP transport](/docs/integrations/server.md#native-fate-protocol), mutations come from the `mutations` object passed to `createFateServer`.
+- With the [tRPC adapter](/docs/integrations/server.md#trpc-fate-setup), mutations come from tRPC mutation procedures exposed through your fate-enabled router.
+- With [Void](/docs/integrations/void.md), mutations use the same native fate server shape and are exposed through the Void route helpers.
 
 If you have a mutation named `post.like`, a `LikeButton` component using fate Actions and an async component library could look like this:
 
@@ -1160,9 +1178,9 @@ You can call mutations from anywhere, and without waiting for previous mutations
 
 fate Actions & Mutations are backed by regular server mutations. If you already know how your fate server is wired, the client-side API above is the same regardless of transport. If not, start with the server setup for your environment:
 
-- [Native HTTP custom mutations](/docs/guide/server-integration.md#custom-mutations) use `createFateServer({ mutations })`.
-- [tRPC fate setup](/docs/guide/server-integration.md#trpc-fate-setup) wires fate into your tRPC router; custom writes can use the same `fate.createPlan` and `fate.resolveById` helpers shown there.
-- [Void integration](/docs/guide/void-integration.md) exposes a native fate server from Void routes; define mutations with the native `createFateServer({ mutations })` API and serve them through `defineVoidFateRoute`.
+- [Native HTTP custom mutations](/docs/integrations/server.md#custom-mutations) use `createFateServer({ mutations })`.
+- [tRPC fate setup](/docs/integrations/server.md#trpc-fate-setup) wires fate into your tRPC router; custom writes can use the same `fate.createPlan` and `fate.resolveById` helpers shown there.
+- [Void integration](/docs/integrations/void.md) exposes a native fate server from Void routes; define mutations with the native `createFateServer({ mutations })` API and serve them through `defineVoidFateRoute`.
 
 Here is a native HTTP mutation for `post.like`:
 
@@ -1235,7 +1253,7 @@ export const postRouter = router({
 });
 ```
 
-See [Server Integration](/docs/guide/server-integration.md) for complete native HTTP and tRPC setup examples, and [Void Integration](/docs/guide/void-integration.md) for route helpers when your app runs on Void.
+See [Server Integration](/docs/integrations/server.md) for complete native HTTP and tRPC setup examples, and [Void Integration](/docs/integrations/void.md) for route helpers when your app runs on Void.
 
 ### Action & Mutation Error Handling
 
@@ -1316,9 +1334,266 @@ addComment({
 });
 ```
 
+## Vue
+
+_fate_ also supports Vue through `vue-fate`. It exports the same core primitives as `react-fate` where Vue has a natural equivalent: `view`, `useRequest`, `useView`, `useListView`, `useLiveView`, `useLiveListView`, `useFateClient`, and the `FateClient` provider.
+
+Vue components use fate through Vue resources built from refs, computed values, watchers, and `<Suspense>`. The view model, generated client, normalized cache, masking, request shapes, list views, live views, and mutations are shared with the React adapter.
+
+### Installation
+
+Install `vue-fate` in your Vue client:
+
+::: code-group
+
+```bash [npm]
+npm add vue-fate
+```
+
+```bash [pnpm]
+pnpm add vue-fate
+```
+
+```bash [yarn]
+yarn add vue-fate
+```
+
+:::
+
+If your server lives in a separate package, install `@nkzw/fate` there as a runtime dependency too.
+
+### Vite Plugin
+
+Use the Vue adapter's Vite plugin in the client app:
+
+```ts
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    fate({
+      module: '@your-org/server/fate.ts',
+      transport: 'native',
+    }),
+  ],
+});
+```
+
+The plugin generates `vue-fate/client`, which contains the typed `createFateClient` helper for your app. The `module` and `transport` options are the same options used by the React adapter.
+
+### Providing the Client
+
+Create a client with `createFateClient` and provide it with `FateClient`:
+
+```vue
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { FateClient } from 'vue-fate';
+import { createFateClient } from 'vue-fate/client';
+import AppRoutes from './AppRoutes.vue';
+
+const token = ref<string | null>(null);
+
+const fate = computed(() =>
+  createFateClient({
+    headers: () => ({
+      authorization: token.value ? `Bearer ${token.value}` : '',
+    }),
+    url: '/fate',
+  }),
+);
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <Suspense>
+      <AppRoutes />
+    </Suspense>
+  </FateClient>
+</template>
+```
+
+The `client` prop accepts a plain client, a ref, a computed value, or a getter. Descendants always read the current client, so switching credentials, endpoints, or transports does not require remounting the provider.
+
+You can also install the client as a Vue plugin:
+
+```ts
+import { createApp } from 'vue';
+import { createFatePlugin } from 'vue-fate';
+import { createFateClient } from 'vue-fate/client';
+import App from './App.vue';
+
+const fate = createFateClient({ url: '/fate' });
+
+createApp(App).use(createFatePlugin(fate)).mount('#app');
+```
+
+### Defining Views
+
+Views are plain TypeScript values and can live anywhere. In Vue apps, it is usually best to define shared views in `.ts` modules and import them from single-file components:
+
+```ts
+import type { Post, User } from '@your-org/server/views';
+import { view } from 'vue-fate';
+
+export const UserView = view<User>()({
+  id: true,
+  name: true,
+  username: true,
+});
+
+export const PostView = view<Post>()({
+  author: UserView,
+  id: true,
+  title: true,
+});
+```
+
+Vue can import values across components, but single-file components have one default component export. Keeping reusable views in `.ts` files avoids coupling your data model to component files and makes view composition straightforward.
+
+### Requests
+
+`useRequest` declares the data a route, page, or component tree needs. It returns a resource with `data`, `pending`, `error`, `ready`, `refresh`, and `dispose`:
+
+```vue
+<script setup lang="ts">
+import { useListView, useRequest } from 'vue-fate';
+import { PostCardView } from '../fateViews';
+import PostCard from '../ui/PostCard.vue';
+
+const request = useRequest({
+  posts: {
+    args: { first: 20 },
+    list: PostCardView,
+  },
+});
+
+const { posts } = await request.ready();
+const [postItems, loadNext] = useListView(PostCardView, posts);
+</script>
+
+<template>
+  <PostCard v-for="{ node } in postItems" :key="node.id" :post="node" />
+  <button v-if="loadNext" @click="loadNext()">Load more</button>
+</template>
+```
+
+Awaiting `ready()` in `<script setup>` participates in Vue Suspense. If you do not await it, read `request.data.value`, `request.pending.value`, and `request.error.value` in script, or use the refs directly in templates.
+
+### Views in Components
+
+Use `useView` to read a `ViewRef` from the normalized cache and subscribe to updates for the selected fields:
+
+```vue
+<script setup lang="ts">
+import type { ViewRef } from 'vue-fate';
+import { useView } from 'vue-fate';
+import { PostCardView, UserView } from '../fateViews';
+import UserCard from './UserCard.vue';
+
+const props = defineProps<{
+  post: ViewRef<'Post'>;
+}>();
+
+const post = useView(PostCardView, () => props.post);
+const author = useView(UserView, () => post.value?.author ?? null);
+</script>
+
+<template>
+  <article v-if="post">
+    <h2>{{ post.title }}</h2>
+    <UserCard v-if="author" :user="author" />
+  </article>
+</template>
+```
+
+Pass reactive props through a getter so fate tracks prop changes. In script, resources are refs and need `.value`. In templates, Vue unwraps them automatically.
+
+### Lists and Live Views
+
+`useListView` subscribes to a connection returned from `useRequest` or from a nested view field:
+
+```ts
+const [comments, loadNextCommentPage] = useListView(CommentView, () => post.value?.comments);
+```
+
+`useLiveView` and `useLiveListView` have the same resource shape as `useView` and `useListView`, but they also subscribe to server-pushed updates when the selected transport supports live views:
+
+```ts
+const post = useLiveView(PostCardView, () => props.post);
+const [comments] = useLiveListView(CommentView, () => post.value?.comments);
+```
+
+Manual cleanup works through `dispose()`:
+
+```ts
+const post = useLiveView(PostCardView, () => props.post);
+
+onBeforeUnmount(() => {
+  post.dispose();
+});
+```
+
+Vue scope disposal also cleans up resources automatically.
+
+### Mutations
+
+Use `useFateClient` to access generated mutations:
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useFateClient } from 'vue-fate';
+
+const props = defineProps<{
+  post: { id: string; likes: number };
+}>();
+
+const fate = useFateClient();
+const pending = ref(false);
+const error = ref<unknown>(null);
+
+const like = async () => {
+  pending.value = true;
+  error.value = null;
+
+  try {
+    await fate.mutations.post.like({
+      input: { id: props.post.id },
+      optimistic: { likes: props.post.likes + 1 },
+    });
+  } catch (caughtError) {
+    error.value = caughtError;
+  } finally {
+    pending.value = false;
+  }
+};
+</script>
+
+<template>
+  <button :disabled="pending" @click="like">Like</button>
+</template>
+```
+
+The mutation call shape is the same as `react-fate`: `input`, `optimistic`, `insert`, and `view` work the same way. Vue does not have React Actions or `useActionState`, so Vue components should model pending and error state with Vue refs or your application state library.
+
+### API Differences from React
+
+The names intentionally mirror `react-fate` where Vue has an equivalent API. The main differences are Vue framework differences:
+
+- `useRequest`, `useView`, and list hooks return Vue resources instead of throwing promises from render.
+- Async setup and `<Suspense>` replace React's async component model.
+- Mutations use `fate.mutations` directly; React-only `fate.actions` and `useActionState` patterns do not apply.
+- Shared views are best kept in `.ts` modules instead of exporting named views from component files.
+
+The generated client, server integrations, cache behavior, masking, pagination, optimistic updates, and live transport behavior are shared across adapters.
+
 ## GraphQL Integration
 
-_fate_ can use an existing GraphQL API as its transport. This keeps the React APIs, view composition, normalized cache, masking, requests, list views, live views, and actions the same while replacing the native or tRPC backend with GraphQL operations.
+_fate_ can use an existing GraphQL API as its transport. This keeps the adapter APIs, view composition, normalized cache, masking, requests, list views, live views, and mutations the same while replacing the native or tRPC backend with GraphQL operations.
 
 Use the GraphQL transport when your backend already exposes GraphQL and you want fate's client model without adding fate's native server protocol.
 
@@ -1418,13 +1693,15 @@ export const fateGraphQL = {
 } as const;
 ```
 
-The data views describe the fields React components are allowed to select. `Root` describes the root operations available to `useRequest`. `fateGraphQL.roots` maps those root names to actual GraphQL fields. If the GraphQL field has the same name as the fate root, the `field` entry can be omitted.
+The data views describe the fields client components are allowed to select. `Root` describes the root operations available to `useRequest`. `fateGraphQL.roots` maps those root names to actual GraphQL fields. If the GraphQL field has the same name as the fate root, the `field` entry can be omitted.
 
 ### Vite Plugin
 
 Configure the fate Vite plugin with the GraphQL transport and point it at the mapping module:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { fate } from 'react-fate/vite';
 import { defineConfig } from 'vite';
 
@@ -1438,13 +1715,33 @@ export default defineConfig({
 });
 ```
 
+```ts [Vue]
+import vue from '@vitejs/plugin-vue';
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    fate({
+      module: './src/fate/graphql.ts',
+      transport: 'graphql',
+    }),
+  ],
+});
+```
+
+:::
+
 The plugin generates a typed `createFateClient` helper from your views, roots, and GraphQL mapping. It also watches the mapping module and the files it imports during development.
 
 ### Creating a Client
 
 Create the client with your GraphQL endpoint and provide it through the `FateClient` provider:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { FateClient } from 'react-fate';
 import { createFateClient } from 'react-fate/client';
 
@@ -1459,6 +1756,29 @@ export function App() {
   return <FateClient client={fate}>{/* Components go here */}</FateClient>;
 }
 ```
+
+```vue [Vue]
+<script setup lang="ts">
+import { FateClient } from 'vue-fate';
+import { createFateClient } from 'vue-fate/client';
+import AppRoutes from './AppRoutes.vue';
+
+const fate = createFateClient({
+  headers: () => ({
+    authorization: `Bearer ${token}`,
+  }),
+  url: 'https://api.example.com/graphql',
+});
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <AppRoutes />
+  </FateClient>
+</template>
+```
+
+:::
 
 Use `fetch` when you need to customize credentials or reuse an application fetch wrapper:
 
@@ -1572,7 +1892,7 @@ export const fateGraphQL = {
 } as const;
 ```
 
-Actions use the same `mutation(...)` and `useActionState` APIs described in the [Actions Guide](/docs/guide/actions.md).
+Mutations use the same `mutation(...)` API described in the [Actions Guide](/docs/guide/actions.md). React clients can also expose those mutations as Actions for `useActionState`.
 
 ### Live Views
 
@@ -1615,7 +1935,7 @@ const fate = createFateClient({
 
 The GraphQL transport is intentionally a mapping layer. It does not require `createFateServer`, the Prisma adapter, or the Drizzle adapter. Your GraphQL server remains responsible for authorization, validation, resolver behavior, cursor pagination, and mutation side effects.
 
-Use data views to expose only the fields the client should be able to select, keep GraphQL schema authorization in your server, and treat `src/fate/graphql.ts` as the contract between your GraphQL API and fate's React client.
+Use data views to expose only the fields the client should be able to select, keep GraphQL schema authorization in your server, and treat `src/fate/graphql.ts` as the contract between your GraphQL API and fate's client.
 
 ## Server Integration
 
@@ -1623,7 +1943,7 @@ Until now, we have focused on the client-side API of fate. You'll need a backend
 
 - The native fate protocol, which is transport-agnostic and can be hosted by any Fetch-compatible server.
 - The tRPC adapter, which keeps compatibility with existing tRPC backends.
-- The [GraphQL transport](/docs/guide/graphql-integration.md), which maps fate views and roots to an existing GraphQL schema.
+- The [GraphQL transport](/docs/integrations/graphql.md), which maps fate views and roots to an existing GraphQL schema.
 
 _fate_ currently provides database adapters for Prisma and Drizzle, but the framework itself is not coupled to a particular ORM. The adapters plug into the same source execution runtime and can be exposed through the native protocol or through tRPC.
 
@@ -1804,7 +2124,9 @@ app.post('/fate/live', handler);
 
 Configure the Vite plugin with the native transport:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { fate } from 'react-fate/vite';
 import { defineConfig } from 'vite';
 
@@ -1818,15 +2140,45 @@ export default defineConfig({
 });
 ```
 
+```ts [Vue]
+import vue from '@vitejs/plugin-vue';
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    fate({
+      module: '@your-org/server/fate.ts',
+      transport: 'native',
+    }),
+  ],
+});
+```
+
+:::
+
 With the native transport, the Vite plugin handles the HTTP transport setup. If you need to create a client manually, use `createFateClient` with the same route:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { createFateClient } from 'react-fate/client';
 
 const client = createFateClient({
   url: '/fate',
 });
 ```
+
+```ts [Vue]
+import { createFateClient } from 'vue-fate/client';
+
+const client = createFateClient({
+  url: '/fate',
+});
+```
+
+:::
 
 The HTTP transport batches operations issued in the same microtask into one `POST /fate` request. Live views use one `GET /fate/live` SSE stream per fate client and `POST /fate/live` control messages when views subscribe or unsubscribe.
 
@@ -2204,7 +2556,9 @@ export * from './views.ts';
 
 Configure the fate Vite plugin with your server module:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { fate } from 'react-fate/vite';
 import { defineConfig } from 'vite';
 
@@ -2217,11 +2571,28 @@ export default defineConfig({
 });
 ```
 
+```ts [Vue]
+import vue from '@vitejs/plugin-vue';
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    fate({
+      module: '@your-org/server/trpc/router.ts',
+    }),
+  ],
+});
+```
+
+:::
+
 _Note: fate uses the specified server module name to find the server types it needs. Make sure that the module is available to the client package's Vite config._
 
 During development, the plugin watches the server module and the files it imports. When one of those files changes, fate updates the internal client wiring and invalidates `@nkzw/fate/client` in Vite's module graph.
 
-For a barebones client without React, import the plugin from `@nkzw/fate/vite` and the client APIs from `@nkzw/fate/client`. The plugin wires the same server types for the selected import path.
+For a barebones client without a framework adapter, import the plugin from `@nkzw/fate/vite` and the client APIs from `@nkzw/fate/client`. The plugin wires the same server types for the selected import path.
 
 The plugin writes project-local types under `.fate/`. If your TypeScript config does not already include dot-directories, extend the generated config:
 
@@ -2233,9 +2604,11 @@ The plugin writes project-local types under `.fate/`. If your TypeScript config 
 
 ### Creating a _fate_ Client
 
-Now that the Vite plugin has connected the types, create a fate client instance and provide it to your React app with the `FateClient` context provider:
+Now that the Vite plugin has connected the types, create a fate client instance and provide it to your app with the `FateClient` provider:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { httpBatchLink } from '@trpc/client';
 import { FateClient } from 'react-fate';
 import { createFateClient } from 'react-fate/client';
@@ -2261,7 +2634,290 @@ export function App() {
 }
 ```
 
+```vue [Vue]
+<script setup lang="ts">
+import { httpBatchLink } from '@trpc/client';
+import { computed } from 'vue';
+import { FateClient } from 'vue-fate';
+import { createFateClient } from 'vue-fate/client';
+import AppRoutes from './AppRoutes.vue';
+
+const fate = computed(() =>
+  createFateClient({
+    links: [
+      httpBatchLink({
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            credentials: 'include',
+          }),
+        url: `${env('SERVER_URL')}/trpc`,
+      }),
+    ],
+  }),
+);
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <AppRoutes />
+  </FateClient>
+</template>
+```
+
+:::
+
 _And you are all set. Happy building!_
+
+## Void Integration
+
+`void-fate` is the first-class [Void](https://void.cloud) adapter for fate to ease integration with the Void SDK and for deploying to the Void platform.
+
+Use this integration when your app runs on Void and you want the example app's
+setup without copying its adapter glue.
+
+### Install
+
+::: code-group
+
+```sh [React]
+pnpm add @nkzw/fate react-fate void-fate void @void/react
+```
+
+```sh [Vue]
+pnpm add @nkzw/fate vue-fate void-fate void @void/vue
+```
+
+:::
+
+### Vite
+
+Use the framework adapter's Vite plugin with the Void transport:
+
+::: code-group
+
+```tsx [React]
+import { voidReact } from '@void/react/plugin';
+import { fate } from 'react-fate/vite';
+import { defineConfig } from 'vite-plus';
+import { voidPlugin } from 'void';
+
+export default defineConfig({
+  plugins: [
+    voidPlugin(),
+    voidReact(),
+    fate({
+      module: './src/fate/server.ts',
+      transport: 'void',
+    }),
+  ],
+});
+```
+
+```ts [Vue]
+import { voidVue } from '@void/vue/plugin';
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite-plus';
+import { voidPlugin } from 'void';
+
+export default defineConfig({
+  plugins: [
+    voidPlugin(),
+    voidVue(),
+    fate({
+      module: './src/fate/server.ts',
+      transport: 'void',
+    }),
+  ],
+});
+```
+
+:::
+
+The Void transport uses `/fate` for RPC requests and `/fate-live` for live
+updates by default. In SSR, it calls the exported fate server directly. In the
+browser, it uses fetch and the SSE live endpoint.
+
+### Server Setup
+
+Create a Void live adapter with `createVoidFateLive`, pass its `live` event bus
+to `createFateServer`, and export the adapter next to your fate server.
+
+```tsx
+import { createFateServer } from '@nkzw/fate/server';
+import { createDrizzleSourceAdapter } from '@nkzw/fate/server/drizzle';
+import { createVoidFateLive } from 'void-fate/server';
+import { db } from 'void/db';
+import schema from '../db/schema.ts';
+import { createContext } from './context.ts';
+import { Root } from './views.ts';
+
+const sources = createDrizzleSourceAdapter({
+  db,
+  schema,
+  views: Root,
+});
+
+export const fateLive = createVoidFateLive();
+export const { live } = fateLive;
+
+export const fateServer = createFateServer({
+  context: ({ request }) => createContext({ request }),
+  live,
+  roots: Root,
+  sources,
+});
+```
+
+Your app can publish live updates through the normal fate live bus:
+
+```tsx
+live.update('Post', postId, { changed: ['likes'] });
+live.connection('Post.comments', { id: postId }).appendNode('Comment', commentId, {
+  node: comment,
+});
+```
+
+`changed` is optional. Void still uses generic topic fanout, while fate uses the changed field paths to refetch or write only the selected fields affected by the event.
+
+### Routes
+
+Add one route for fate RPC requests:
+
+```tsx
+// routes/fate.ts
+import { defineVoidFateRoute } from 'void-fate/server';
+import { fateLive, fateServer } from '../src/fate/server.ts';
+
+export const { GET, POST } = defineVoidFateRoute(fateServer, fateLive);
+```
+
+Add a second route for the live SSE transport:
+
+```tsx
+// routes/fate-live.ts
+import { defineVoidFateLiveRoute } from 'void-fate/server';
+import { fateLive, fateServer } from '../src/fate/server.ts';
+
+export const { GET, POST } = defineVoidFateLiveRoute(fateServer, fateLive);
+```
+
+The live route handles `GET /fate-live` SSE connections and `POST /fate-live`
+control messages. `void-fate` does not use WebSockets.
+
+### Layout
+
+Wrap your app with the Void fate client for your framework. It creates and
+provides the fate client through the matching adapter.
+
+::: code-group
+
+```tsx [React]
+import { useShared } from '@void/react';
+import type { ReactNode } from 'react';
+import { VoidFateClient } from 'void-fate/react';
+import type { SharedData } from '../src/lib/shared.ts';
+
+export default function Layout({ children }: { children: ReactNode }) {
+  const shared = useShared<SharedData>();
+  const userId = shared.auth.user?.id;
+  const origin = typeof window === 'undefined' ? shared.origin : window.location.origin;
+
+  return (
+    <VoidFateClient origin={origin} userId={userId}>
+      {children}
+    </VoidFateClient>
+  );
+}
+```
+
+```vue [Vue]
+<script setup lang="ts">
+import { useShared } from '@void/vue';
+import { computed } from 'vue';
+import { FateClient } from 'vue-fate';
+import { createFateClient } from 'vue-fate/client';
+import type { SharedData } from '../src/lib/shared.ts';
+
+const shared = useShared<SharedData>();
+
+const fate = computed(() =>
+  createFateClient({
+    origin: typeof window === 'undefined' ? shared.origin : window.location.origin,
+    userId: shared.auth.user?.id,
+  }),
+);
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <slot />
+  </FateClient>
+</template>
+```
+
+:::
+
+`userId` is optional, but passing it lets the client be recreated when the
+signed-in user changes. Browser requests include credentials when a `userId` is
+present.
+
+### Custom Paths
+
+The default route pair is `/fate` and `/fate-live`. If your Void app uses
+different paths, configure the same values on the live adapter and client.
+
+```tsx
+export const fateLive = createVoidFateLive({
+  livePath: '/custom-fate-live',
+});
+```
+
+::: code-group
+
+```tsx [React]
+<VoidFateClient livePath="/custom-fate-live" origin={origin} rpcPath="/custom-fate" userId={userId}>
+  {children}
+</VoidFateClient>
+```
+
+```vue [Vue]
+<script setup lang="ts">
+const fate = computed(() =>
+  createFateClient({
+    livePath: '/custom-fate-live',
+    origin,
+    rpcPath: '/custom-fate',
+    userId,
+  }),
+);
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <slot />
+  </FateClient>
+</template>
+```
+
+:::
+
+The route helper does not own the route path. Make sure your Void route filename
+or router configuration matches the paths you pass to the client.
+
+### Live Transport
+
+Void can run separate request handlers for mutations and long-lived SSE
+connections. `createVoidFateLive` bridges those handlers by publishing live
+events from the request that changed data to the live route.
+
+In local development, `void-fate` uses a development token for that internal
+publish request. Outside local development, Void must provide `__VOID_PROXY_TOKEN`
+in the route environment. If no internal publish token is available, the adapter
+falls back to the in-memory live bus for the current request context.
+
+The live transport is best-effort and does not replay missed events after a
+client reconnects. This matches fate's default in-memory live event bus.
 
 ## Frequently Asked Questions
 

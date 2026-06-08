@@ -52,6 +52,93 @@ pre {
   margin-bottom: 0;
 }
 
+.fate-home-rotator {
+  display: none;
+}
+
+.fate-home-word {
+  display: inline-grid;
+  min-width: 5.35ch;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.fate-home-word-reduced {
+  min-width: 12.5ch;
+  overflow: visible;
+}
+
+.fate-home-word-current,
+.fate-home-word-next {
+  grid-area: 1 / 1;
+  transition:
+    filter 260ms ease,
+    opacity 260ms ease,
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fate-home-word-settling .fate-home-word-current,
+.fate-home-word-settling .fate-home-word-next {
+  transition: none;
+}
+
+.fate-home-word-next {
+  opacity: 0;
+  transform: translateY(80%) skewY(4deg);
+}
+
+.fate-home-word-swapping .fate-home-word-current {
+  filter: blur(2px);
+  opacity: 0;
+  transform: translateY(-80%) skewY(-4deg);
+}
+
+.fate-home-word-swapping .fate-home-word-next {
+  opacity: 1;
+  transform: translateY(0) skewY(0);
+}
+
+.VPFeatures .VPFeature {
+  position: relative;
+}
+
+.VPFeatures .VPFeature .fate-home-feature-content,
+.VPFeatures .VPFeature .fate-home-feature-ghost {
+  transition:
+    filter 260ms ease,
+    opacity 260ms ease,
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.VPFeatures .VPFeature .fate-home-feature-ghost {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.VPFeatures .VPFeature.fate-home-feature-settling .fate-home-feature-content {
+  transition: none;
+}
+
+.VPFeatures .VPFeature.fate-home-feature-in .fate-home-feature-content {
+  filter: blur(1px);
+  opacity: 0.32;
+}
+
+.VPFeatures .VPFeature.fate-home-feature-out .fate-home-feature-ghost {
+  filter: blur(2px);
+  opacity: 0;
+}
+
+.VPFeatures .VPFeature.fate-home-feature-in .fate-home-feature-content {
+  transform: translateY(6px);
+}
+
+.VPFeatures .VPFeature.fate-home-feature-out .fate-home-feature-ghost {
+  transform: translateY(-6px);
+}
+
 .VPHero .container .main {
   order: 2;
 }

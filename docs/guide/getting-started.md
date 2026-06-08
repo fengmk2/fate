@@ -8,11 +8,11 @@ Create a new fate app with Vite+:
 vp create fate my-app
 ```
 
-The template selector can create a Void app with Drizzle, a tRPC app with Drizzle or Prisma, a GraphQL app with Prisma, or a fate client for an existing GraphQL server. The template sources live in the fate repo under [`packages/create-fate/templates/fate`](https://github.com/nkzw-tech/fate/tree/main/packages/create-fate/templates/fate). They feature modern tools to deliver an incredibly fast development experience.
+The template selector can create a React or Vue client for a Void app with Drizzle, a tRPC app with Drizzle or Prisma, a GraphQL app with Prisma, or a fate client for an existing GraphQL server. React is the default UI framework; pass `--framework vue` or choose Vue in the template selector to create a Vue app. The template sources live in the fate repo under [`packages/create-fate/templates/fate`](https://github.com/nkzw-tech/fate/tree/main/packages/create-fate/templates/fate). They feature modern tools to deliver an incredibly fast development experience.
 
 ## Manual Installation
 
-**_fate_** requires React 19.2+. For a React client, install `react-fate`:
+For a React client, install `react-fate`. It requires React 19.2+:
 
 ::: code-group
 
@@ -30,7 +30,25 @@ yarn add react-fate
 
 :::
 
-If your server is a separate package, install `@nkzw/fate` there as a runtime dependency too. Install `@nkzw/fate` on the client only for a barebones integration without React:
+For a Vue client, install `vue-fate`:
+
+::: code-group
+
+```bash [npm]
+npm add vue-fate
+```
+
+```bash [pnpm]
+pnpm add vue-fate
+```
+
+```bash [yarn]
+yarn add vue-fate
+```
+
+:::
+
+If your server is a separate package, install `@nkzw/fate` there as a runtime dependency too. Install `@nkzw/fate` on the client only for a barebones integration without a framework adapter:
 
 ::: code-group
 

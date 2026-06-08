@@ -1,4 +1,6 @@
+import type { EnhanceAppContext } from 'vitepress';
 import DefaultTheme from 'vitepress/theme';
+import HomeRotator from './HomeRotator.vue';
 import './docs.css';
 
 const listener = (event: DragEvent) => {
@@ -14,4 +16,8 @@ if (typeof document !== 'undefined') {
 
 export default {
   ...DefaultTheme,
+  enhanceApp(context: EnhanceAppContext) {
+    DefaultTheme.enhanceApp?.(context);
+    context.app.component('HomeRotator', HomeRotator);
+  },
 };

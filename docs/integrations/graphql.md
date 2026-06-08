@@ -1,6 +1,6 @@
 # GraphQL Integration
 
-_fate_ can use an existing GraphQL API as its transport. This keeps the React APIs, view composition, normalized cache, masking, requests, list views, live views, and actions the same while replacing the native or tRPC backend with GraphQL operations.
+_fate_ can use an existing GraphQL API as its transport. This keeps the adapter APIs, view composition, normalized cache, masking, requests, list views, live views, and mutations the same while replacing the native or tRPC backend with GraphQL operations.
 
 Use the GraphQL transport when your backend already exposes GraphQL and you want fate's client model without adding fate's native server protocol.
 
@@ -100,13 +100,15 @@ export const fateGraphQL = {
 } as const;
 ```
 
-The data views describe the fields React components are allowed to select. `Root` describes the root operations available to `useRequest`. `fateGraphQL.roots` maps those root names to actual GraphQL fields. If the GraphQL field has the same name as the fate root, the `field` entry can be omitted.
+The data views describe the fields client components are allowed to select. `Root` describes the root operations available to `useRequest`. `fateGraphQL.roots` maps those root names to actual GraphQL fields. If the GraphQL field has the same name as the fate root, the `field` entry can be omitted.
 
 ## Vite Plugin
 
 Configure the fate Vite plugin with the GraphQL transport and point it at the mapping module:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { fate } from 'react-fate/vite';
 import { defineConfig } from 'vite';
 
@@ -120,13 +122,33 @@ export default defineConfig({
 });
 ```
 
+```ts [Vue]
+import vue from '@vitejs/plugin-vue';
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    fate({
+      module: './src/fate/graphql.ts',
+      transport: 'graphql',
+    }),
+  ],
+});
+```
+
+:::
+
 The plugin generates a typed `createFateClient` helper from your views, roots, and GraphQL mapping. It also watches the mapping module and the files it imports during development.
 
 ## Creating a Client
 
 Create the client with your GraphQL endpoint and provide it through the `FateClient` provider:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { FateClient } from 'react-fate';
 import { createFateClient } from 'react-fate/client';
 
@@ -141,6 +163,29 @@ export function App() {
   return <FateClient client={fate}>{/* Components go here */}</FateClient>;
 }
 ```
+
+```vue [Vue]
+<script setup lang="ts">
+import { FateClient } from 'vue-fate';
+import { createFateClient } from 'vue-fate/client';
+import AppRoutes from './AppRoutes.vue';
+
+const fate = createFateClient({
+  headers: () => ({
+    authorization: `Bearer ${token}`,
+  }),
+  url: 'https://api.example.com/graphql',
+});
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <AppRoutes />
+  </FateClient>
+</template>
+```
+
+:::
 
 Use `fetch` when you need to customize credentials or reuse an application fetch wrapper:
 
@@ -254,7 +299,7 @@ export const fateGraphQL = {
 } as const;
 ```
 
-Actions use the same `mutation(...)` and `useActionState` APIs described in the [Actions Guide](/guide/actions).
+Mutations use the same `mutation(...)` API described in the [Actions Guide](/guide/actions). React clients can also expose those mutations as Actions for `useActionState`.
 
 ## Live Views
 
@@ -297,4 +342,4 @@ const fate = createFateClient({
 
 The GraphQL transport is intentionally a mapping layer. It does not require `createFateServer`, the Prisma adapter, or the Drizzle adapter. Your GraphQL server remains responsible for authorization, validation, resolver behavior, cursor pagination, and mutation side effects.
 
-Use data views to expose only the fields the client should be able to select, keep GraphQL schema authorization in your server, and treat `src/fate/graphql.ts` as the contract between your GraphQL API and fate's React client.
+Use data views to expose only the fields the client should be able to select, keep GraphQL schema authorization in your server, and treat `src/fate/graphql.ts` as the contract between your GraphQL API and fate's client.

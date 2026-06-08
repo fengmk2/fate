@@ -7,7 +7,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 const root = process.cwd();
 
@@ -30,11 +30,14 @@ const assertDirectory = (path: string) => {
   }
 };
 
-const rewriteGuideLinks = (directory: string) => {
+const toMarkdownPath = (fromDirectory: string, targetPath: string) =>
+  relative(fromDirectory, targetPath).replaceAll('\\', '/');
+
+const rewriteDocsLinks = (targetRoot: string, directory = targetRoot) => {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) {
-      rewriteGuideLinks(path);
+      rewriteDocsLinks(targetRoot, path);
       continue;
     }
 
@@ -42,9 +45,17 @@ const rewriteGuideLinks = (directory: string) => {
       continue;
     }
 
+    const fromDirectory = dirname(relative(targetRoot, path));
     const content = readFileSync(path, 'utf8')
-      .replaceAll(/\(\/guide\/([^)#]+?)(#[^)]+?)?\)/g, '($1.md$2)')
-      .replaceAll('(/api', '(../api');
+      .replaceAll(
+        /\(\/(guide|integrations)\/([^)#]+?)(#[^)]+?)?\)/g,
+        (_match, section: string, slug: string, hash = '') =>
+          `(${toMarkdownPath(fromDirectory, join(section, `${slug}.md`))}${hash})`,
+      )
+      .replaceAll(/\(\/api([^)#]*)(#[^)]+?)?\)/g, (_match, suffix: string, hash = '') => {
+        const apiPath = suffix ? join('api', suffix) : 'api/index.md';
+        return `(${toMarkdownPath(fromDirectory, apiPath)}${hash})`;
+      });
     writeFileSync(path, content);
   }
 };
@@ -52,23 +63,27 @@ const rewriteGuideLinks = (directory: string) => {
 for (const packageDocs of packages) {
   const apiSource = join(root, packageDocs.api);
   const guideSource = join(root, 'docs/guide');
+  const integrationsSource = join(root, 'docs/integrations');
   const target = join(root, packageDocs.target);
 
   assertDirectory(apiSource);
   assertDirectory(guideSource);
+  assertDirectory(integrationsSource);
 
   rmSync(target, { force: true, recursive: true });
   mkdirSync(target, { recursive: true });
 
   cpSync(apiSource, join(target, 'api'), { recursive: true });
   cpSync(guideSource, join(target, 'guide'), { recursive: true });
-  rewriteGuideLinks(join(target, 'guide'));
+  cpSync(integrationsSource, join(target, 'integrations'), { recursive: true });
+  rewriteDocsLinks(target);
 
   writeFileSync(
     join(target, 'index.md'),
     `# ${packageDocs.name} Docs
 
 - [Guides](guide/getting-started.md)
+- [Integrations](integrations/server.md)
 - [API Reference](api/index.md)
 `,
   );

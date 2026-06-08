@@ -12,11 +12,14 @@ const files = [
   'docs/guide/core-concepts.md',
   'docs/guide/views.md',
   'docs/guide/requests.md',
+  'docs/guide/deferred-views.md',
   'docs/guide/list-views.md',
   'docs/guide/live-views.md',
   'docs/guide/actions.md',
-  'docs/guide/graphql-integration.md',
-  'docs/guide/server-integration.md',
+  'docs/guide/vue.md',
+  'docs/integrations/graphql.md',
+  'docs/integrations/server.md',
+  'docs/integrations/void.md',
   'docs/parts/outro.md',
 ].map((file) => path.join(root, file));
 
@@ -43,10 +46,18 @@ for (const file of files) {
     content = content.replaceAll(/\(\/guide\/([^)#]+?)(#[^)]+?)?\)/g, '(/docs/guide/$1.md$2)');
   }
 
+  if (content.includes(`(/integrations/`)) {
+    content = content.replaceAll(
+      /\(\/integrations\/([^)#]+?)(#[^)]+?)?\)/g,
+      '(/docs/integrations/$1.md$2)',
+    );
+  }
+
   segments.push(shiftHeadings(stripFrontmatter(content).trim()));
 }
 
-const banner = '<!-- auto-generated from docs/guide/*.md. Do not edit directly. -->\n\n';
+const banner =
+  '<!-- auto-generated from docs/guide/*.md and docs/integrations/*.md. Do not edit directly. -->\n\n';
 
 await fs.writeFile(README, banner + segments.join('\n\n') + '\n', 'utf8');
 

@@ -11,7 +11,7 @@ const nkzwLogo = readFileSync(join(import.meta.dirname, './nkzw-logo.svg'), 'utf
 
 export default defineConfig({
   cleanUrls: true,
-  description: 'A Modern React Data Framework',
+  description: 'A Modern React and Vue Data Framework',
   head: [
     ['link', { href: '/icon.svg', rel: 'icon' }],
     ['meta', { content: `${origin}/og-image.png`, name: 'og:image' }],
@@ -25,6 +25,9 @@ export default defineConfig({
   },
   rewrites: {
     'docs/:path*': ':path*',
+    'guide/graphql-integration': 'integrations/graphql',
+    'guide/server-integration': 'integrations/server',
+    'guide/void-integration': 'integrations/void',
   },
   sitemap: {
     hostname: 'https://fate.technology',
@@ -75,11 +78,19 @@ export default defineConfig({
           { link: '/guide/live-views', text: 'Live Views' },
           { link: '/guide/actions', text: 'Actions' },
           { link: '/guide/requests', text: 'Requests' },
-          { link: '/guide/graphql-integration', text: 'GraphQL Integration' },
-          { link: '/guide/server-integration', text: 'Server Integration' },
-          { link: '/guide/void-integration', text: 'Void Integration' },
+          { link: '/guide/deferred-views', text: 'Deferred Views' },
+          { link: '/guide/vue', text: 'Vue' },
         ],
         text: 'Guide',
+      },
+      {
+        collapsed: false,
+        items: [
+          { link: '/integrations/graphql', text: 'GraphQL' },
+          { link: '/integrations/server', text: 'Server' },
+          { link: '/integrations/void', text: 'Void' },
+        ],
+        text: 'Integrations',
       },
       { collapsed: false, items: apiItems, text: 'API' },
       {

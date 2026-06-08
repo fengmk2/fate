@@ -7,9 +7,9 @@ fate does not provide hooks for mutations like traditional data fetching librari
 
 Server mutations are exposed automatically as actions and mutations by fate's Vite plugin. The transport determines where those mutations are declared:
 
-- With the [native HTTP transport](/guide/server-integration#native-fate-protocol), mutations come from the `mutations` object passed to `createFateServer`.
-- With the [tRPC adapter](/guide/server-integration#trpc-fate-setup), mutations come from tRPC mutation procedures exposed through your fate-enabled router.
-- With [Void](/guide/void-integration), mutations use the same native fate server shape and are exposed through the Void route helpers.
+- With the [native HTTP transport](/integrations/server#native-fate-protocol), mutations come from the `mutations` object passed to `createFateServer`.
+- With the [tRPC adapter](/integrations/server#trpc-fate-setup), mutations come from tRPC mutation procedures exposed through your fate-enabled router.
+- With [Void](/integrations/void), mutations use the same native fate server shape and are exposed through the Void route helpers.
 
 If you have a mutation named `post.like`, a `LikeButton` component using fate Actions and an async component library could look like this:
 
@@ -148,9 +148,9 @@ You can call mutations from anywhere, and without waiting for previous mutations
 
 fate Actions & Mutations are backed by regular server mutations. If you already know how your fate server is wired, the client-side API above is the same regardless of transport. If not, start with the server setup for your environment:
 
-- [Native HTTP custom mutations](/guide/server-integration#custom-mutations) use `createFateServer({ mutations })`.
-- [tRPC fate setup](/guide/server-integration#trpc-fate-setup) wires fate into your tRPC router; custom writes can use the same `fate.createPlan` and `fate.resolveById` helpers shown there.
-- [Void integration](/guide/void-integration) exposes a native fate server from Void routes; define mutations with the native `createFateServer({ mutations })` API and serve them through `defineVoidFateRoute`.
+- [Native HTTP custom mutations](/integrations/server#custom-mutations) use `createFateServer({ mutations })`.
+- [tRPC fate setup](/integrations/server#trpc-fate-setup) wires fate into your tRPC router; custom writes can use the same `fate.createPlan` and `fate.resolveById` helpers shown there.
+- [Void integration](/integrations/void) exposes a native fate server from Void routes; define mutations with the native `createFateServer({ mutations })` API and serve them through `defineVoidFateRoute`.
 
 Here is a native HTTP mutation for `post.like`:
 
@@ -223,7 +223,7 @@ export const postRouter = router({
 });
 ```
 
-See [Server Integration](/guide/server-integration) for complete native HTTP and tRPC setup examples, and [Void Integration](/guide/void-integration) for route helpers when your app runs on Void.
+See [Server Integration](/integrations/server) for complete native HTTP and tRPC setup examples, and [Void Integration](/integrations/void) for route helpers when your app runs on Void.
 
 ## Action & Mutation Error Handling
 

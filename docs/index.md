@@ -3,7 +3,7 @@ layout: home
 
 hero:
   text: A modern data client for React
-  tagline: Inspired by Relay and GraphQL, fate combines view composition, normalized caching, data masking, Async React features, and type-safe data fetching.
+  tagline: Inspired by Relay and GraphQL, fate combines view composition, normalized caching, data masking, and type-safe data fetching.
   image:
     dark: /fate-logo-dark.svg
     light: /fate-logo.svg
@@ -27,11 +27,6 @@ features:
     details: Components declare their data requirements using co-located "views". Views are composed into a single request per screen, minimizing network requests and eliminating waterfalls.
     link: /guide/core-concepts
     linkText: Thinking in Views
-  - title: Async React
-    icon: ⚛️
-    details: fate uses modern Async React features like Actions, Suspense, and `use` for a seamless user experience. Optimistic updates enable instant UI feedback and rollbacks are handled automatically.
-    link: /guide/actions
-    linkText: Actions in fate
   - title: Data Masking & Strict Selection
     icon: 🥽
     details: fate prevents accidental coupling and overfetching by enforcing strict data selection for each view, and masks (hides) data that components did not request.
@@ -42,21 +37,26 @@ features:
     details: fate's minimal, predictable API and explicit data selection enable local reasoning, enabling humans and AI tools to generate stable, type-safe data-fetching code.
     link: https://github.com/nkzw-tech/fate/blob/main/packages/create-fate/templates/fate/drizzle/AGENTS.md
     linkText: AGENTS.md
+  - title: Async React
+    icon: ⚛️
+    details: fate uses modern Async React features like Actions, Suspense, and `use` for a seamless user experience. Optimistic updates enable instant UI feedback and rollbacks are handled automatically.
+    link: /guide/actions
+    linkText: Actions in fate
 ---
 
 <script setup lang="ts">
 import {
-  ShaderMount,
-  GrainGradientParams,
-  getShaderColorFromString,
   defaultObjectSizing,
-  grainGradientFragmentShader,
-  GrainGradientShapes,
-  GrainGradientUniforms,
+  getShaderColorFromString,
   getShaderNoiseTexture,
+  GrainGradientShapes,
+  grainGradientFragmentShader,
   ShaderFitOptions,
+  ShaderMount,
+  type GrainGradientParams,
+  type GrainGradientUniforms,
 } from '@paper-design/shaders';
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 const config = {
   ...defaultObjectSizing,
@@ -142,6 +142,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="host" class="shader" />
+  <HomeRotator />
 </template>
 
 <style scoped>

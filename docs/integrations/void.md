@@ -7,15 +7,25 @@ setup without copying its adapter glue.
 
 ## Install
 
-```sh
-pnpm add @nkzw/fate react-fate void-fate void
+::: code-group
+
+```sh [React]
+pnpm add @nkzw/fate react-fate void-fate void @void/react
 ```
+
+```sh [Vue]
+pnpm add @nkzw/fate vue-fate void-fate void @void/vue
+```
+
+:::
 
 ## Vite
 
-Use the regular `react-fate` Vite plugin with the Void transport:
+Use the framework adapter's Vite plugin with the Void transport:
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { voidReact } from '@void/react/plugin';
 import { fate } from 'react-fate/vite';
 import { defineConfig } from 'vite-plus';
@@ -32,6 +42,26 @@ export default defineConfig({
   ],
 });
 ```
+
+```ts [Vue]
+import { voidVue } from '@void/vue/plugin';
+import { fate } from 'vue-fate/vite';
+import { defineConfig } from 'vite-plus';
+import { voidPlugin } from 'void';
+
+export default defineConfig({
+  plugins: [
+    voidPlugin(),
+    voidVue(),
+    fate({
+      module: './src/fate/server.ts',
+      transport: 'void',
+    }),
+  ],
+});
+```
+
+:::
 
 The Void transport uses `/fate` for RPC requests and `/fate-live` for live
 updates by default. In SSR, it calls the exported fate server directly. In the
@@ -104,12 +134,14 @@ export const { GET, POST } = defineVoidFateLiveRoute(fateServer, fateLive);
 The live route handles `GET /fate-live` SSE connections and `POST /fate-live`
 control messages. `void-fate` does not use WebSockets.
 
-## React Layout
+## Layout
 
-Wrap your app with `VoidFateClient` from `void-fate/react`. It creates and
-provides the fate client through `react-fate`:
+Wrap your app with the Void fate client for your framework. It creates and
+provides the fate client through the matching adapter.
 
-```tsx
+::: code-group
+
+```tsx [React]
 import { useShared } from '@void/react';
 import type { ReactNode } from 'react';
 import { VoidFateClient } from 'void-fate/react';
@@ -128,9 +160,36 @@ export default function Layout({ children }: { children: ReactNode }) {
 }
 ```
 
-`userId` is optional, but passing it lets `VoidFateClient` recreate the client
-when the signed-in user changes. Browser requests include credentials when a
-`userId` is present.
+```vue [Vue]
+<script setup lang="ts">
+import { useShared } from '@void/vue';
+import { computed } from 'vue';
+import { FateClient } from 'vue-fate';
+import { createFateClient } from 'vue-fate/client';
+import type { SharedData } from '../src/lib/shared.ts';
+
+const shared = useShared<SharedData>();
+
+const fate = computed(() =>
+  createFateClient({
+    origin: typeof window === 'undefined' ? shared.origin : window.location.origin,
+    userId: shared.auth.user?.id,
+  }),
+);
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <slot />
+  </FateClient>
+</template>
+```
+
+:::
+
+`userId` is optional, but passing it lets the client be recreated when the
+signed-in user changes. Browser requests include credentials when a `userId` is
+present.
 
 ## Custom Paths
 
@@ -143,11 +202,34 @@ export const fateLive = createVoidFateLive({
 });
 ```
 
-```tsx
+::: code-group
+
+```tsx [React]
 <VoidFateClient livePath="/custom-fate-live" origin={origin} rpcPath="/custom-fate" userId={userId}>
   {children}
 </VoidFateClient>
 ```
+
+```vue [Vue]
+<script setup lang="ts">
+const fate = computed(() =>
+  createFateClient({
+    livePath: '/custom-fate-live',
+    origin,
+    rpcPath: '/custom-fate',
+    userId,
+  }),
+);
+</script>
+
+<template>
+  <FateClient :client="fate">
+    <slot />
+  </FateClient>
+</template>
+```
+
+:::
 
 The route helper does not own the route path. Make sure your Void route filename
 or router configuration matches the paths you pass to the client.
