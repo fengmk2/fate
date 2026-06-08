@@ -1,6 +1,6 @@
 {
   "name": "@nkzw/fate-private",
-  "version": "1.1.0",
+  "version": "0.0.0",
   "private": true,
   "description": "fate is a modern data client for React.",
   "author": "Christoph Nakazawa <christoph.pojer@gmail.com>",
