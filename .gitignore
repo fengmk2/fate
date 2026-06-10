@@ -28,6 +28,8 @@ packages/**/README.md
 !packages/create-fate/LICENSE
 !packages/create-fate/README.md
 !packages/create-fate/templates/**/README.md
+!packages/cf-fate/LICENSE
+!packages/cf-fate/README.md
 !packages/void-fate/README.md
 tsconfig.tsbuildinfo
 vite.config.ts.timestamp-*

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -107,6 +107,55 @@ describe('create-fate templates', () => {
     expect(fateManifest).toContain('export const Root');
     expect(fateManifest).toContain('export const fateGraphQL');
     expect(packageJson).not.toContain('@app/server');
+  });
+
+  test('ships a Cloudflare template with D1 and live SSE support', () => {
+    const templateRoot = join(packageRoot, 'templates/fate/cloudflare');
+    const clientPackageJson = JSON.parse(
+      readFileSync(join(templateRoot, 'client/package.json'), 'utf8'),
+    ) as {
+      dependencies?: Record<string, string>;
+    };
+    const clientViteConfig = readFileSync(join(templateRoot, 'client/vite.config.ts'), 'utf8');
+    const layout = readFileSync(join(templateRoot, 'client/pages/layout.tsx'), 'utf8');
+    const serverPackageJson = JSON.parse(
+      readFileSync(join(templateRoot, 'server/package.json'), 'utf8'),
+    ) as {
+      dependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    const wranglerConfig = readFileSync(join(templateRoot, 'server/wrangler.jsonc'), 'utf8');
+    const workerEntry = readFileSync(join(templateRoot, 'server/src/index.ts'), 'utf8');
+    const router = readFileSync(join(templateRoot, 'server/src/router.ts'), 'utf8');
+    const gitignore = readFileSync(join(templateRoot, '_gitignore'), 'utf8');
+    const seedMigration = readFileSync(
+      join(templateRoot, 'server/db/migrations/20260508120500_seed_cloudflare_demo.sql'),
+      'utf8',
+    );
+
+    expect(clientPackageJson.dependencies).toHaveProperty('cf-fate');
+    expect(clientPackageJson.dependencies).not.toHaveProperty('@hono/node-server');
+    expect(clientViteConfig).toContain("transport: 'cloudflare'");
+    expect(clientViteConfig).toContain('server: { port: 6001 }');
+    expect(layout).toContain("liveUrl: `${env('SERVER_URL')}/fate-live`");
+    expect(serverPackageJson.dependencies).toHaveProperty('cf-fate');
+    expect(serverPackageJson.scripts).toHaveProperty('db:migrate');
+    expect(serverPackageJson.scripts).toHaveProperty('db:migrate:remote');
+    expect(wranglerConfig).toContain('"binding": "DB"');
+    expect(wranglerConfig).toContain('"name": "FATE_LIVE"');
+    expect(wranglerConfig).toContain('"migrations_dir": "db/migrations"');
+    expect(workerEntry).toContain('defineCloudflareFateRoute');
+    expect(workerEntry).toContain('defineCloudflareFateLiveRoute');
+    expect(router).toContain("export { fateServer } from './fate/server.ts'");
+    expect(gitignore).not.toContain('server/src/prisma');
+    expect(seedMigration).toContain('Cloudflare');
+    expect(seedMigration).not.toContain('Void example');
+    expect(seedMigration).not.toContain('native HTTP');
+    expect(seedMigration).not.toContain('outside of Hono');
+    expect(existsSync(join(templateRoot, 'docker-compose.yml'))).toBe(false);
+    expect(
+      existsSync(join(templateRoot, 'server/db/migrations/20260508120500_seed_void_demo.sql')),
+    ).toBe(false);
   });
 
   test('generates Vue projects for every backend template', () => {
@@ -235,6 +284,29 @@ describe('create-fate templates', () => {
           expect
             .soft(readFileSync(join(target, 'src/fate/graphql.ts'), 'utf8'), templateName)
             .toContain('fateGraphQL');
+        }
+
+        if (templateName === 'cloudflare') {
+          const serverPackageJson = JSON.parse(
+            readFileSync(join(target, 'server/package.json'), 'utf8'),
+          ) as {
+            dependencies?: Record<string, string>;
+          };
+
+          expect.soft(packageJson.dependencies?.['cf-fate'], templateName).toBe('latest');
+          expect.soft(serverPackageJson.dependencies?.['cf-fate'], templateName).toBe('latest');
+          expect
+            .soft(
+              existsSync(join(target, 'server/db/migrations/20260508120500_seed_void_demo.sql')),
+            )
+            .toBe(false);
+          expect
+            .soft(
+              existsSync(
+                join(target, 'server/db/migrations/20260508120500_seed_cloudflare_demo.sql'),
+              ),
+            )
+            .toBe(true);
         }
       }
     } finally {

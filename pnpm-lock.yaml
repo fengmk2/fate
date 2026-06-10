@@ -176,6 +176,9 @@ importers:
       '@nkzw/fate':
         specifier: workspace:*
         version: link:../../packages/fate
+      '@nkzw/fate-server-cloudflare':
+        specifier: workspace:*
+        version: link:../cloudflare
       '@nkzw/fate-server-graphql':
         specifier: workspace:*
         version: link:../server-graphql
@@ -197,6 +200,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(@rolldown/plugin-babel@0.2.3(@babel/core@7.29.7)(@voidzero-dev/vite-plus-core@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(rolldown@1.0.3))(@voidzero-dev/vite-plus-core@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(babel-plugin-react-compiler@1.0.0)
+      cf-fate:
+        specifier: workspace:*
+        version: link:../../packages/cf-fate
       tailwindcss:
         specifier: ^4.3.0
         version: 4.3.0
@@ -270,6 +276,40 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.1.24(@types/node@25.9.1)(@vitest/coverage-v8@4.1.8)(@voidzero-dev/vite-plus-core@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(esbuild@0.28.0)(happy-dom@20.9.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+
+  example/cloudflare:
+    dependencies:
+      '@nkzw/core':
+        specifier: ^1.3.1
+        version: 1.3.1
+      '@nkzw/fate':
+        specifier: workspace:*
+        version: link:../../packages/fate
+      better-auth:
+        specifier: ^1.6.13
+        version: 1.6.13(47a82144a828f9ea409a98bd1afc806a)
+      cf-fate:
+        specifier: workspace:*
+        version: link:../../packages/cf-fate
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@cloudflare/workers-types@4.20260601.1)(@electric-sql/pglite@0.4.1)(@prisma/client@7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.16))(@types/react@19.2.16)(better-sqlite3@12.10.0)(magicast@0.5.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3))(typescript@6.0.3))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.17)(mysql2@3.15.3)(pg@8.21.0)(postgres@3.4.7)(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.16))(@types/react@19.2.16)(better-sqlite3@12.10.0)(magicast@0.5.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3))
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@0.1.24
+        version: '@voidzero-dev/vite-plus-core@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)'
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.1.24(@types/node@25.9.1)(@vitest/coverage-v8@4.1.8)(@voidzero-dev/vite-plus-core@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(esbuild@0.28.0)(happy-dom@20.9.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.96.0(@cloudflare/workers-types@4.20260601.1)
 
   example/server-drizzle:
     dependencies:
@@ -562,6 +602,16 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.1.24(@types/node@25.9.1)(@vitest/coverage-v8@4.1.8)(@voidzero-dev/vite-plus-core@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(esbuild@0.28.0)(happy-dom@20.9.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+
+  packages/cf-fate:
+    dependencies:
+      '@nkzw/fate':
+        specifier: ^1.0.3
+        version: 1.0.3(@trpc/client@11.17.0(@trpc/server@11.17.0(typescript@6.0.3))(typescript@6.0.3))(@voidzero-dev/vite-plus-core@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260601.1)(@electric-sql/pglite@0.4.1)(@prisma/client@7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.16))(@types/react@19.2.16)(better-sqlite3@12.10.0)(magicast@0.5.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3))(typescript@6.0.3))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.17)(mysql2@3.15.3)(pg@8.21.0)(postgres@3.4.7)(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.16))(@types/react@19.2.16)(better-sqlite3@12.10.0)(magicast@0.5.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3)))
+    devDependencies:
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@0.1.24
+        version: '@voidzero-dev/vite-plus-core@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)'
 
   packages/create-fate:
     dependencies:

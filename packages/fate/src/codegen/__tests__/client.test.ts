@@ -210,6 +210,41 @@ test('generates a native HTTP client with live enabled when the server supports 
   expect(sourceText).toContain('live: true');
 });
 
+test('generates a Cloudflare HTTP client with the cf-fate live connector', () => {
+  type Post = { id: string; title: string };
+  const postDataView = dataView<Post>('Post')({
+    id: true,
+    title: true,
+  });
+  const source: SourceDefinition<Post> = { id: 'id', view: postDataView };
+  const fate = createFateServer({
+    live: createLiveEventBus(),
+    roots: {
+      posts: list(postDataView),
+    },
+    sources: {
+      getSource: <Item extends Record<string, unknown>>() =>
+        source as unknown as SourceDefinition<Item>,
+      registry: createSourceRegistry([[source, {}]]),
+    },
+  });
+
+  const sourceText = createClientSource({
+    moduleExports: {
+      fate,
+      postDataView,
+      Root: { posts: list(postDataView) },
+    },
+    moduleName: '@org/server/cloudflare.ts',
+    transport: 'cloudflare',
+  });
+
+  expect(sourceText).toContain("import { connectCloudflareFateStream } from 'cf-fate/client';");
+  expect(sourceText).toContain('live: connectCloudflareFateStream');
+  expect(sourceText).toContain("const defaultCloudflareFateRpcPath = '/fate';");
+  expect(sourceText).toContain("const defaultCloudflareFateLivePath = '/fate-live';");
+});
+
 test('generates a GraphQL client source with Relay roots and configured mutations', () => {
   type User = { __typename: 'User'; id: string; name: string };
   type Post = {

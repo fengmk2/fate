@@ -88,6 +88,7 @@ export default defineConfig({
         items: [
           { link: '/integrations/graphql', text: 'GraphQL' },
           { link: '/integrations/server', text: 'Server' },
+          { link: '/integrations/cloudflare', text: 'Cloudflare' },
           { link: '/integrations/void', text: 'Void' },
         ],
         text: 'Integrations',

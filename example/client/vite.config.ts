@@ -32,6 +32,7 @@ const lazyClientPlugins = (): Array<PluginOption> => [
 
 export default defineConfig({
   build: { outDir: join(root, '../dist/client') },
+  cacheDir: join(root, 'node_modules/.vite/default'),
   plugins: [
     ...(lazyPlugins(lazyClientPlugins) ?? []),
     fate({

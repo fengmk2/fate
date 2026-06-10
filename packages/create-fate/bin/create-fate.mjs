@@ -7,6 +7,11 @@ import { fileURLToPath, URL } from 'node:url';
 import { cancel, intro, isCancel, outro, select, text } from '@clack/prompts';
 
 const variants = {
+  cloudflare: {
+    description: 'Cloudflare Workers with D1 and Drizzle',
+    label: 'Cloudflare',
+    template: 'cloudflare',
+  },
   drizzle: {
     description: 'tRPC with Drizzle',
     label: 'Drizzle',
@@ -50,11 +55,11 @@ const frontendFrameworks = {
   },
 };
 
-const fateDependencyNames = ['@nkzw/fate', 'react-fate', 'void-fate', 'vue-fate'];
+const fateDependencyNames = ['@nkzw/fate', 'cf-fate', 'react-fate', 'void-fate', 'vue-fate'];
 
 const usage = () => {
   process.stdout
-    .write(`Usage: create-fate [directory] [--template void|drizzle|graphql|graphql-client|http|prisma] [--framework react|vue]
+    .write(`Usage: create-fate [directory] [--template cloudflare|void|drizzle|graphql|graphql-client|http|prisma] [--framework react|vue]
 
 Create a new fate app.
 
@@ -273,6 +278,10 @@ const resolveFateDependencyVersions = async (rootDir) => {
   return Object.fromEntries(
     await Promise.all(
       dependencies.map(async (dependencyName) => {
+        if (dependencyName === 'cf-fate') {
+          return [dependencyName, 'latest'];
+        }
+
         try {
           return [dependencyName, `^${await fetchLatestPackageVersion(dependencyName)}`];
         } catch (error) {
@@ -431,6 +440,29 @@ const replaceInFiles = (dir, replacements) => {
 };
 
 const vueTransportConfigs = {
+  cloudflare: {
+    clientImports: `import env from '../src/lib/env.ts';`,
+    createOptions: `{
+  fetch: (input, init) =>
+    fetch(input, {
+      ...init,
+      credentials: 'include',
+    }),
+  liveUrl: \`\${env('SERVER_URL')}/fate-live\`,
+  url: \`\${env('SERVER_URL')}/fate\`,
+}`,
+    dotenvConfig: `dotenv.config({
+  path: join(root, '../server', process.env.NODE_ENV === 'development' || process.env.DEV ? '.env' : '.prod.env'),
+  quiet: true,
+})`,
+    envKeys: `['SERVER_URL']`,
+    envValues: `{
+  SERVER_URL: import.meta.env.VITE_SERVER_URL,
+}`,
+    fateModule: '@app/server/src/router.ts',
+    fateTransport: `transport: 'cloudflare',`,
+    typeModule: '@app/server/src/router.ts',
+  },
   drizzle: {
     clientImports: `import { httpBatchLink } from '@trpc/client';
 import env from '../src/lib/env.ts';`,
@@ -603,6 +635,13 @@ const configureVuePackageJson = (frontendRoot, selectedVariant, originalPackageJ
     };
   }
 
+  if (selectedVariant === 'cloudflare') {
+    packageJson.dependencies = {
+      ...packageJson.dependencies,
+      'cf-fate': 'latest',
+    };
+  }
+
   if (packageJson.description) {
     packageJson.description = packageJson.description.replaceAll('React', 'Vue');
   }
@@ -676,6 +715,7 @@ const configureVueReadme = (targetPath, selectedVariant) => {
         'data masking, Async React features, and',
         'data masking, Vue-native composables, and',
       )
+      .replaceAll('Async React features', 'Vue-native composables')
       .replaceAll('React applications', 'Vue applications')
       .replaceAll(
         '- [React](https://reactjs.org/) with [React Compiler](https://react.dev/learn/react-compiler) enabled',
@@ -837,6 +877,10 @@ const setupProject = (targetPath, selectedVariant) => {
   runCommand('vp', ['install'], targetPath);
 
   switch (selectedVariant) {
+    case 'cloudflare':
+      runCommand('vp', ['run', '--filter', '@app/server', 'dev:setup'], targetPath);
+      runCommand('vp', ['run', 'fate:generate'], targetPath);
+      break;
     case 'graphql':
     case 'prisma':
       runCommand('vp', ['run', '--filter', '@app/server', 'dev:setup'], targetPath);

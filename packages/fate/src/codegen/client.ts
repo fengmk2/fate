@@ -87,10 +87,22 @@ export const createClientSource = ({
   if (transport === 'native' || transport === 'void') {
     return createNativeClientSource({
       clientModule,
+      cloudflareTransport: false,
       moduleExports,
       moduleName,
       runtimeModuleName,
       voidTransport: transport === 'void',
+    });
+  }
+
+  if (transport === 'cloudflare') {
+    return createNativeClientSource({
+      clientModule,
+      cloudflareTransport: true,
+      moduleExports,
+      moduleName,
+      runtimeModuleName,
+      voidTransport: false,
     });
   }
 
@@ -578,12 +590,14 @@ ${generatedClientTypes}
 
 const createNativeClientSource = ({
   clientModule,
+  cloudflareTransport,
   moduleExports,
   moduleName,
   runtimeModuleName,
   voidTransport,
 }: {
   clientModule: ClientModule;
+  cloudflareTransport: boolean;
   moduleExports: ModuleExports;
   moduleName: string;
   runtimeModuleName: string;
@@ -726,8 +740,21 @@ const createVoidFetch = (options: {
 };
 `
     : '';
-  const createClientOptions = voidTransport
-    ? `options: {
+  const cloudflareHelpers = cloudflareTransport
+    ? `
+const defaultCloudflareFateRpcPath = '/fate';
+const defaultCloudflareFateLivePath = '/fate-live';
+
+const getDefaultOrigin = () =>
+  typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+
+const toEndpointUrl = (url: string | URL | undefined, path: string, origin: string | URL) =>
+  url ?? new URL(path, origin);
+`
+    : '';
+  const createClientOptions =
+    voidTransport || cloudflareTransport
+      ? `options: {
   fetch?: typeof fetch;
   headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
   livePath?: string;
@@ -739,7 +766,7 @@ const createVoidFetch = (options: {
   url?: string | URL;
   userId?: null | string;
 } = {}`
-    : `options: {
+      : `options: {
   fetch?: typeof fetch;
   headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
   liveRetryMs?: number;
@@ -747,8 +774,9 @@ const createVoidFetch = (options: {
   onLiveError?: (error: unknown) => void;
   url: string | URL;
 }`;
-  const clientSetup = voidTransport
-    ? ` => {
+  const clientSetup =
+    voidTransport || cloudflareTransport
+      ? ` => {
   const origin = options.origin ?? getDefaultOrigin();
 
   return createClient<[GeneratedClientRoots, GeneratedClientMutations], typeof hydrationScope>({
@@ -757,21 +785,21 @@ const createVoidFetch = (options: {
     onLiveError: options.onLiveError,
     roots,
     transport: createHTTPTransport<FateAPI>({
-      fetch: createVoidFetch(options),
+      fetch: ${voidTransport ? 'createVoidFetch(options)' : 'options.fetch'},
       headers: options.headers,
-      live: ${hasLive ? 'connectLiveStream' : 'false'},
+      live: ${hasLive ? (voidTransport ? 'connectLiveStream' : 'connectCloudflareFateStream') : 'false'},
       liveRetryMs: options.liveRetryMs,
       liveUrl: toEndpointUrl(
         options.liveUrl,
-        options.livePath ?? defaultVoidFateLivePath,
+        options.livePath ?? ${voidTransport ? 'defaultVoidFateLivePath' : 'defaultCloudflareFateLivePath'},
         origin,
       ),
-      url: toEndpointUrl(options.url, options.rpcPath ?? defaultVoidFateRpcPath, origin),
+      url: toEndpointUrl(options.url, options.rpcPath ?? ${voidTransport ? 'defaultVoidFateRpcPath' : 'defaultCloudflareFateRpcPath'}, origin),
     }),
     types: ${typesBlock.trimStart()},
   });
 }`
-    : ` =>
+      : ` =>
   createClient<[GeneratedClientRoots, GeneratedClientMutations], typeof hydrationScope>({
     hydrationScope,
     mutations,
@@ -803,6 +831,7 @@ declare module '${clientDeclarationModule}' {
 import type { ${importedTypes.join(', ')} } from '${moduleName}';
 import { clientRoot, createClient, createHTTPTransport, mutation, type InferFateAPI } from '${clientModule}';
 ${voidTransport && hasLive ? "import { connectLiveStream } from 'void/live/client';\n" : ''}${voidServerFetch}
+${cloudflareTransport && hasLive ? "import { connectCloudflareFateStream } from 'cf-fate/client';\n" : ''}${cloudflareHelpers}
 
 type FateAPI = InferFateAPI<typeof fateServer>;
 

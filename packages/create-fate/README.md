@@ -11,6 +11,7 @@ The generated app is installed and the fate client is generated during creation.
 Choose between these templates:
 
 - `void`: Void pages router with Drizzle.
+- `cloudflare`: Cloudflare Workers with D1 and Drizzle.
 - `drizzle`: tRPC with Drizzle.
 - `graphql`: GraphQL with Prisma.
 - `graphql-client`: React client for an existing GraphQL server.
