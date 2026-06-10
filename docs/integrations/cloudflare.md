@@ -4,12 +4,30 @@
 
 Use it when your backend runs directly on Cloudflare Workers and you want fate live views without adopting the Void platform.
 
-## Install
+## New Project
+
+For a new Cloudflare Workers app, start from the Cloudflare template. It includes the client, Worker server, D1 migrations, Wrangler config, Durable Object live transport, auth wiring, and generated fate client setup.
+
+```sh
+vp create fate my-app --template cloudflare
+```
+
+Use Vue instead of React with:
+
+```sh
+vp create fate my-app --template cloudflare --framework vue
+```
+
+## Existing Project
+
+For an existing Cloudflare Workers project, add the packages directly:
 
 ```sh
 pnpm add @nkzw/fate react-fate cf-fate drizzle-orm
 pnpm add -D wrangler
 ```
+
+For Vue clients, replace `react-fate` with `vue-fate`.
 
 ## Server Setup
 

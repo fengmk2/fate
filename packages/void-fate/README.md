@@ -6,7 +6,23 @@ Void adapter for [fate](https://github.com/nkzw-tech/fate).
 client wrapper needed to use fate in a Void app without keeping adapter glue in
 application code.
 
-## Install
+## New Project
+
+For a new Void app, start from the Void template:
+
+```sh
+vp create fate my-app --template void
+```
+
+Use Vue instead of React with:
+
+```sh
+vp create fate my-app --template void --framework vue
+```
+
+## Existing Project
+
+For an existing Void project, add the packages directly:
 
 ```sh
 pnpm add @nkzw/fate react-fate void-fate void

@@ -20,6 +20,7 @@ const files = [
   'docs/integrations/graphql.md',
   'docs/integrations/server.md',
   'docs/integrations/void.md',
+  'docs/integrations/cloudflare.md',
   'docs/parts/outro.md',
 ].map((file) => path.join(root, file));
 

@@ -5,7 +5,23 @@
 Use this integration when your app runs on Void and you want the example app's
 setup without copying its adapter glue.
 
-## Install
+## New Project
+
+For a new Void app, start from the Void template. It includes the client, Void routes, Drizzle setup, live transport, auth wiring, and generated fate client setup.
+
+```sh
+vp create fate my-app --template void
+```
+
+Use Vue instead of React with:
+
+```sh
+vp create fate my-app --template void --framework vue
+```
+
+## Existing Project
+
+For an existing Void project, add the packages directly:
 
 ::: code-group
 

@@ -5,11 +5,29 @@ Cloudflare adapter for [fate](https://github.com/nkzw-tech/fate).
 `cf-fate` provides a Durable Object-backed Server-Sent Events transport for Fate
 live views in plain Cloudflare Workers projects.
 
-## Install
+## New Project
+
+For a new Cloudflare Workers app, start from the Cloudflare template:
+
+```sh
+vp create fate my-app --template cloudflare
+```
+
+Use Vue instead of React with:
+
+```sh
+vp create fate my-app --template cloudflare --framework vue
+```
+
+## Existing Project
+
+For an existing Cloudflare Workers project, add the packages directly:
 
 ```sh
 pnpm add @nkzw/fate react-fate cf-fate
 ```
+
+For Vue clients, replace `react-fate` with `vue-fate`.
 
 ## Wrangler
 
