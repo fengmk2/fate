@@ -128,6 +128,7 @@ describe('create-fate templates', () => {
     const workerEntry = readFileSync(join(templateRoot, 'server/src/index.ts'), 'utf8');
     const router = readFileSync(join(templateRoot, 'server/src/router.ts'), 'utf8');
     const gitignore = readFileSync(join(templateRoot, '_gitignore'), 'utf8');
+    const workspace = readFileSync(join(templateRoot, 'pnpm-workspace.yaml'), 'utf8');
     const seedMigration = readFileSync(
       join(templateRoot, 'server/db/migrations/20260508120500_seed_cloudflare_demo.sql'),
       'utf8',
@@ -148,6 +149,8 @@ describe('create-fate templates', () => {
     expect(workerEntry).toContain('defineCloudflareFateLiveRoute');
     expect(router).toContain("export { fateServer } from './fate/server.ts'");
     expect(gitignore).not.toContain('server/src/prisma');
+    expect(workspace).toContain('  better-sqlite3: true');
+    expect(workspace).toContain('  - better-sqlite3');
     expect(seedMigration).toContain('Cloudflare');
     expect(seedMigration).not.toContain('Void example');
     expect(seedMigration).not.toContain('native HTTP');
