@@ -2,6 +2,20 @@ packages:
   - example/*
   - packages/*
 
+minimumReleaseAge: 60
+minimumReleaseAgeExclude:
+  - '@voidzero-dev/*'
+  - vite-plus
+  - '@vitest/*'
+  - vite
+  - vitest
+  - '@oxc-project/*'
+  - '@oxlint/*'
+  - oxlint
+  - oxfmt
+  - oxlint-tsgolint
+blockExoticSubdeps: false
+
 allowBuilds:
   '@prisma/engines': true
   '@swc/core': true
@@ -13,9 +27,9 @@ allowBuilds:
   workerd: true
 
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.1.24
-  vite-plus: 0.1.24
-  vitest: npm:@voidzero-dev/vite-plus-test@0.1.24
+  vite: 'https://pkg.pr.new/voidzero-dev/vite-plus/@voidzero-dev/vite-plus-core@1856'
+  vite-plus: 'https://pkg.pr.new/voidzero-dev/vite-plus@1856'
+  vitest: '4.1.9'
 
 onlyBuiltDependencies:
   - '@prisma/client'
