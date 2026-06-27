@@ -18,7 +18,7 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2017",
-    "types": ["vite/client", "vitepress/client"]
+    "types": ["vite-plus/client", "vitepress/client"]
   },
   "exclude": ["node_modules", "packages/create-fate/templates"],
   "include": ["**/.fate/*.ts", "**/*.d.ts", "**/*.ts", "**/*.tsx"],
