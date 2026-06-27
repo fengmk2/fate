@@ -51,8 +51,7 @@
     "prisma-json-types-generator": "^5.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
-    "vite-plus": "catalog:",
-    "vitest": "catalog:"
+    "vite-plus": "catalog:"
   },
   "nodemonConfig": {
     "ext": "tsx",
